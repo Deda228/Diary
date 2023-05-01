@@ -1,232 +1,277 @@
 ﻿uses crt;
 
-const
-  MAX_ENTRIES = 100; // Максимальное количество записей
-
 type
   Entry = record
-    date: string; // Формат: dd/mm/yyyy
-    time: string; // Формат: hh:mm
+    date: string; // Format: dd/mm/yyyy
+    time: string; // Format: hh:mm
     task: string;
     done: boolean;
+    next: ^Entry;
   end;
 
+  EntryPtr = ^Entry;
+
 var
-  entries: array [1..MAX_ENTRIES] of Entry;
   entryCount: integer;
 
+procedure CreateDynamicStructure(var head: EntryPtr);
+begin
+  head := nil;
+end;
 
-// Создание или редактирование файла с невыполненными задачами
-procedure CreateOrModifyFile;
+// Create or modify a file with the uncompleted tasks
+procedure CreateOrModifyFile(var entries: EntryPtr; entryCount: integer);
 var
   fileVar: TextFile;
+  filename: string;
+  currentEntry: EntryPtr;
 begin
   ClrScr;
-  var filename := readstring('Enter the name of the file to create/modify: ') + '.txt';
+  filename := readstring('Enter the name of the file to create/modify: ') + '.txt';
   writeln;
   AssignFile(fileVar, filename);
   if FileExists(filename) then
     Append(fileVar)
   else
     Rewrite(fileVar);
+  currentEntry := entries;
   for var i: integer := 1 to entryCount do
   begin
-    if not entries[i].done then
-      writeln(fileVar, entries[i].date, ' | ', entries[i].time, ' | ', entries[i].task);
+    if not currentEntry^.done then
+      writeln(fileVar, currentEntry^.date, ' | ', currentEntry^.time, ' | ', currentEntry^.task);
+    currentEntry := currentEntry^.next;
   end;
   CloseFile(fileVar);
-  println('File created/modified successfully.');
+  writeln('File created/modified successfully.');
 end;
 
-// Вспомогательная функция для сравнения двух записей
-function CompareEntries(entry1, entry2: Entry): integer;
+// Helper function to compare two entries
+function CompareEntries(entry1, entry2: EntryPtr): integer;
 begin
-  if entry1.date <> entry2.date then
-    CompareEntries := compareStr(entry1.date, entry2.date)
+  if entry1^.date <> entry2^.date then
+    CompareEntries := compareStr(entry1^.date, entry2^.date)
   else
-    CompareEntries := compareStr(entry1.time, entry2.time);
+    CompareEntries := compareStr(entry1^.time, entry2^.time);
 end;
 
-// Алгоритм пузырьковой сортировки для сортировки записей по дате и времени
-procedure SortEntries;
+// Bubble sort algorithm to sort entries by date and time
+procedure SortEntries(var head: EntryPtr);
+var
+  currentEntry, prevEntry, tempEntry: EntryPtr;
+  swapped: boolean;
 begin
-  for var i: integer := 1 to entryCount - 1 do
+  if (head = nil) or (head^.next = nil) then
+    exit;
+  swapped := true;
+  while swapped do
   begin
-    for var j: integer := i + 1 to entryCount do
+    swapped := false;
+    prevEntry := nil;
+    currentEntry := head;
+    while currentEntry^.next <> nil do
     begin
-      if CompareEntries(entries[i], entries[j]) > 0 then
+      if CompareEntries(currentEntry, currentEntry^.next) > 0 then
       begin
-        var tempEntry : entry := entries[i];
-        entries[i] := entries[j];
-        entries[j] := tempEntry;
+        tempEntry := currentEntry^.next;
+        currentEntry^.next := tempEntry^.next;
+        tempEntry^.next := currentEntry;
+        if prevEntry = nil then
+          head := tempEntry
+        else
+          prevEntry^.next := tempEntry;
+        prevEntry := tempEntry;
+        swapped := true;
+      end
+      else
+      begin
+        prevEntry := currentEntry;
+        currentEntry := currentEntry^.next;
       end;
     end;
   end;
 end;
 
-// Отобразить все записи в ежедневнике
-procedure DisplayEntries;
-begin
-  ClrScr;
-  SortEntries;
-  println('Date        Time    Task                      Done');
-  println('--------------------------------------------------');
-  for var i: integer := 1 to entryCount do
-    writeln(entries[i].date, '   ', entries[i].time, '   ', entries[i].task, '   ', entries[i].done);
-end;
-
-// Отобразить записи, соответствующие заданным параметрам поиска
-procedure SearchEntries;
-begin
-  ClrScr;
-  var found : boolean := false;
-  println('Enter the search criteria (press Enter for any field you do not wish to search for):');
-  println;
-  var searchDate := readstring('Date (dd/mm/yyyy): ');
-  var searchTime := readstring('Time (hh:mm): ');
-  var searchTask := readstring('Task: ');
-  SortEntries;
-  println;
-  println('Search results:');
-  println('----------------');
-  println('Date        Time    Task                      Done');
-  println('--------------------------------------------------');
-  for var i: integer := 1 to entryCount do
-    begin
-      if ((searchDate = '') or (entries[i].date = searchDate)) and
-      ((searchTime = '') or (entries[i].time = searchTime)) and
-      ((searchTask = '') or (pos(searchTask, entries[i].task) > 0)) then
-        begin
-          writeln(entries[i].date, ' ', entries[i].time, ' ', entries[i].task, ' ', entries[i].done);
-          found := true;
-        end;
-    end;
-  if not found then
-  println('No entries found.');
-end;
-
-// Добавить новую запись в ежедневник
-procedure AddEntry;
+// Display all entries in the diary
+procedure DisplayEntries(var entries: EntryPtr);
 var
-  newEntry: Entry;
+  currentEntry: EntryPtr;
 begin
   ClrScr;
-  println('Enter the date (dd/mm/yyyy): ');
-  readln(newEntry.date);
-  writeln;
-  println('Enter the time (hh:mm): ');
-  readln(newEntry.time);
-  writeln;
-  println('Enter the task: ');
-  readln(newEntry.task);
-  writeln;
-  newEntry.done := false;
-  if entryCount < MAX_ENTRIES then
+  SortEntries(entries);
+  writeln('Date Time Task Done');
+  writeln('--------------------------------------------------');
+  currentEntry := entries;
+  while currentEntry <> nil do
   begin
-    entryCount += 1;
-    entries[entryCount] := newEntry;
-    println('Entry added successfully.');
-  end
-  else
-    println('Diary is full. Cannot add more entries.');
+    writeln(currentEntry^.date, ' ', currentEntry^.time, ' ', currentEntry^.task, ' ', currentEntry^.done);
+    currentEntry := currentEntry^.next;
+  end;
 end;
 
-// Удаление записи из ежедневника
-procedure DeleteEntry;
-begin
-  ClrScr;
-  var date := readstring('Enter the date (dd/mm/yyyy) of the entry to delete: ');
-  var time := readstring('Enter the time (hh:mm) of the entry to delete: ');
-  var index : integer := -1;
-  for var i: integer := 1 to entryCount do
-    begin
-      if (entries[i].date = date) and (entries[i].time = time) then
-        begin
-          index := i;
-          break;
-        end;
-    end;
-  if index <> -1 then
-    begin
-      for var i: integer := index to entryCount - 1 do
-        entries[i] := entries[i + 1];
-      entryCount -=  1;
-      println('Entry deleted successfully.');
-    end
-  else
-    println('Entry not found.');
-end;
 
-// Отметить запись как выполненную 
-procedure MarkEntry;
+procedure DisplayEntriesByDate(var entries: EntryPtr);
 var
-  date, time: string;
-  found: boolean;
-
+  selectedDate, selectedTime: string;
+  currentEntry: EntryPtr;
 begin
   ClrScr;
-  println('Enter the date (dd/mm/yyyy) of the entry to mark: ');
-  readln(date);
-  writeln;
-  println('Enter the time (hh:mm) of the entry to mark: ');
-  readln(time);
-  writeln;
-  found := false;
-  for var i: integer := 1 to entryCount do
+  SortEntries(entries);
+  selectedDate := readstring('Enter the date (dd/mm/yyyy) of the entry to mark as done: ');
+  selectedTime := readstring('Enter the time (hh:mm) of the entry to mark as done: ');
+  currentEntry := entries;
+  while currentEntry <> nil do
   begin
-    if (entries[i].date = date) and (entries[i].time = time) then
+    if (currentEntry^.date = selectedDate) and (currentEntry^.time = selectedTime) then
     begin
-      found := true;
-      if entries[i].done then
-        entries[i].done := false
-      else
-        entries[i].done := true;
+      currentEntry^.done := true;
       break;
     end;
+    currentEntry := currentEntry^.next;
   end;
-  if found then
-    println('Entry marked successfully.')
-  else
-    println('Entry not found.');
 end;
 
-//Интерфейс
-procedure MainMenu;
+// Отметка записи как невыполненной
+procedure MarkEntryUndone(var entries: EntryPtr);
 var
-  choice: integer;
+selectedDate, selectedTime : string;
+currentEntry : EntryPtr;
 begin
-  repeat
-    writeln;
-    println('1. Display all entries');
-    println('2. Add a new entry');
-    println('3. Delete an entry');
-    println('4. Mark an entry as done');
-    println('5. Search entries');
-    println('6. Create/Modify a file with undone tasks');
-    println('7. Exit');
-    println('Enter your choice (1-7): ');
-    writeln;
-    readln(choice);
-    writeln;
-    case choice of
-      1: DisplayEntries;
-      2: AddEntry;
-      3: DeleteEntry;
-      4: MarkEntry;
-      5: SearchEntries;
-      6: CreateOrModifyFile;
-      7: writeln('Goodbye!')
-    else
-      begin
-        ClrScr; 
-        println('Invalid choice. Please try again.');
-      end;
-    end;
-  until choice = 7;
+ClrScr;
+SortEntries(entries);
+selectedDate := readstring('Enter the date (dd/mm/yyyy) of the entry to mark as undone: ');
+selectedTime := readstring('Enter the time (hh:mm) of the entry to mark as undone: ');
+currentEntry := entries;
+while currentEntry <> nil do
+begin
+if (currentEntry^.date = selectedDate) and (currentEntry^.time = selectedTime) then
+begin
+currentEntry^.done := false;
+break;
+end;
+currentEntry := currentEntry^.next;
+end;
 end;
 
-// Основная часть программы
-
+// Добавление новой записи в список
+procedure AddEntry(var head: EntryPtr; var tail: EntryPtr);
+var
+newEntry: EntryPtr;
 begin
-  mainmenu;
+new(newEntry);
+entryCount := entryCount + 1;
+writeln;
+newEntry^.date := readstring('Enter date (dd/mm/yyyy): ');
+newEntry^.time := readstring('Enter time (hh:mm): ');
+newEntry^.task := readstring('Enter task description: ');
+newEntry^.done := false;
+newEntry^.next := nil;
+if head = nil then
+begin
+head := newEntry;
+tail := newEntry;
+end
+else
+begin
+tail^.next := newEntry;
+tail := newEntry;
+end;
+end;
+
+// Редактирование существующей записи
+procedure EditEntry(var entries: EntryPtr);
+var
+selectedDate, selectedTime : string;
+currentEntry : EntryPtr;
+begin
+ClrScr;
+SortEntries(entries);
+selectedDate := readstring('Enter the date (dd/mm/yyyy) of the entry to edit: ');
+selectedTime := readstring('Enter the time (hh:mm) of the entry to edit: ');
+currentEntry := entries;
+while currentEntry <> nil do
+begin
+if (currentEntry^.date = selectedDate) and (currentEntry^.time = selectedTime) then
+begin
+currentEntry^.date := readstring('Enter new date (dd/mm/yyyy): ');
+currentEntry^.time := readstring('Enter new time (hh:mm): ');
+currentEntry^.task := readstring('Enter new task description: ');
+break;
+end;
+currentEntry := currentEntry^.next;
+end;
+end;
+
+// Отметка записи как выполненной
+procedure MarkEntryDone(var entries: EntryPtr);
+var
+selectedDate, selectedTime : string;
+currentEntry : EntryPtr;
+begin
+ClrScr;
+SortEntries(entries);
+selectedDate := readstring('Enter the date (dd/mm/yyyy) of the entry to mark as done: ');
+selectedTime := readstring('Enter the time (hh:mm) of the entry to mark as done: ');
+currentEntry := entries;
+while currentEntry <> nil do
+begin
+if (currentEntry^.date = selectedDate) and (currentEntry^.time = selectedTime) then
+begin
+currentEntry^.done := true;
+break;
+end;
+currentEntry := currentEntry^.next;
+end;
+end;
+
+// Очистка ежедневника
+procedure ClearEntries(var entries: EntryPtr);
+var
+currentEntry, nextEntry: EntryPtr;
+begin
+ClrScr;
+currentEntry := entries;
+while currentEntry <> nil do
+begin
+nextEntry := currentEntry^.next;
+Dispose(currentEntry);
+currentEntry := nextEntry;
+end;
+entryCount := 0;
+entries := nil;
+writeln('All entries cleared.');
+readln;
+end;
+
+// Основная программа
+var
+choice : char;
+entries, tail: EntryPtr;
+begin
+CreateDynamicStructure(entries);
+tail := nil;
+entryCount := 0;
+repeat
+writeln('A - Add Entry');
+writeln('E - Edit Entry');
+writeln('D - Mark Entry as Done');
+writeln('U - Mark Entry as Undone');
+writeln('S - Display Entries Sorted by Date and Time');
+writeln('T - Display Entries for a Specific Date');
+writeln('C - Clear All Entries');
+writeln('F - Create/Modify File with Uncompleted Tasks');
+writeln('X - Exit');
+writeln;
+write('Enter your choice: ');
+readln(choice);
+case choice of
+'A': AddEntry(entries, tail);
+'E': EditEntry(entries);
+'D': MarkEntryDone(entries);
+'U': MarkEntryUndone(entries);
+'S': DisplayEntries(entries);
+'T': DisplayEntriesByDate(entries);
+'C': ClearEntries(entries);
+'F': CreateOrModifyFile(entries, entryCount);
+end;
+until choice = 'X';
 end.
