@@ -7,6 +7,12 @@ type
     DateAndTime: DateTime;
     Task: string;
     Done: boolean;
+    Constructor (NewDateAndTime: DateTime; NewTask: string; NewDone: boolean);
+    begin
+      DateAndTime := NewDateAndTime;
+      Task := NewTask; 
+      Done := NewDone; 
+    end;
     function WithDone(New_status:boolean):Entry;
     begin
       Result := self;
@@ -115,64 +121,103 @@ end;
 
 {$region Edit}
 
-procedure EditEntry(Diary: List<Entry>); 
+procedure EditEntry(Diary: List<Entry>);
 begin
   var Entry_Ind : integer;
   repeat
     Console.Clear; 
     PrintEntries(Diary);
-    if Diary.Count = 0 then exit;
-    Entry_Ind := ReadLnInteger('Выберите порядковый номер записи, которую хотите изменить:') - 1;
+    if Diary.Count = 0 then
+    begin
+      'Ежедневник пуст.'.Println;
+      exit;
+    end;
+    Entry_Ind := ReadLnInteger('Выберите порядковый номер записи, которую хотите изменить/удалить:') - 1;
   until (cardinal(Entry_Ind) < Diary.Count);
  
-  While true do
-    begin
-      Console.Clear;
-      'Что хотите изменить?'.PrintLn;
-      println;
-      'A - Дату и время события'.Println;
-      'B - Описание события'.PrintLn;
-      'C - Статус события'.PrintLn;
-      'X - Назад'.PrintLn;
-      println;
-      var Choice := ReadLnChar('Выбор: ');
-      var REntry : Entry;
-      case upcase(choice) of
-        
-        'X': Break;
-        
-        'A': 
-        begin
-          try
-            Diary[Entry_Ind] := Diary[Entry_Ind].WithDateAndTime(DateTime.ParseExact(readstring('Введите дату и время события (дд.мм.гггг чч:мм): '),'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU')));
-          except
-            on e: System.FormatException do 
-                begin
-                  println;
-                  ('Ошибка при вводе даты и времени: ', e.Message).Println;
-                  println;
-                  break;
-                end;
+  while true do
+  begin
+    Console.Clear;
+    'Что хотите изменить?'.PrintLn;
+    PrintLn;
+    'A - Дату и время события'.PrintLn;
+    'B - Описание события'.PrintLn;
+    'C - Статус события'.PrintLn;
+    'D - Удалить запись'.Println;
+    'X - Назад'.PrintLn;
+    println;
+    
+    var Choice := ReadLnChar('Выбор: ');
+    case upcase(choice) of
+      'A': 
+      begin
+        try
+          Diary[Entry_Ind] := Diary[Entry_Ind].WithDateAndTime(DateTime.ParseExact(readstring('Введите дату и время события (дд.мм.гггг чч:мм): '),'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU')));
+        except
+          on e: System.FormatException do 
+          begin
+            ('Ошибка при вводе даты и времени: ', e.Message).Println;
+            break;
           end;
         end;
-             
-        'B': Diary[Entry_Ind] := Diary[Entry_Ind].WithTask(ReadLnString('Введите новое описание события: '));
-
-        'C': Diary[Entry_Ind] := Diary[Entry_Ind].WithDone(ReadLnBoolean('Введите новый статус события (True/False): '));             
-        
-        else writeln('Неправильный ввод данных.');
-        
       end;
+             
+      'B': Diary[Entry_Ind] := Diary[Entry_Ind].WithTask(ReadLnString('Введите новое описание события: '));
+
+      'C': Diary[Entry_Ind] := Diary[Entry_Ind].WithDone(ReadLnBoolean('Введите новый статус события (True/False): '));
+
+      'D': 
+      begin
+        Diary.RemoveAt(Entry_Ind);
+        'Запись удалена.'.Println;
+      end;
+        
+      'X': break;
+        
+      else 'Неправильный ввод данных.'.Println;
+        
+    end;
   end; 
   println;
 end;
 
 {$endregion Edit}
 
+{$region File}
+
+procedure WriteToFile(Diary: List<Entry>);
+begin
+  var fs := new FileStream('diary.txt', FileMode.Create);
+  var sw := new StreamWriter(fs);
+  for var i := 0 to Diary.Count - 1 do sw.WriteLine(Diary[i].DateAndTime + '|' + Diary[i].Task + '|' + Diary[i].Done.ToString());
+  sw.Close();
+  fs.Close();
+end;
+
+function ReadFromFile(): List<Entry>;
+begin
+  var fs := new FileStream('diary.txt', FileMode.OpenOrCreate);
+  var sr := new StreamReader(fs);
+  var Diary := new List<Entry>;
+  while not sr.EndOfStream do
+    begin
+      var parts := sr.ReadLine.Split('|');
+      var new_entry: Entry := New Entry(DateTime.Parse(parts[0]),parts[1],Boolean.Parse(parts[2]));
+      Diary.Add(new_entry);
+    end;
+  sr.Close();
+  fs.Close();
+  Diary.Sort(CompareEntriesByTime);
+  Result := Diary;
+end;
+
+{$endregion File}
+
 {$region Menu}
 
 Procedure MainMenu(Diary: List<Entry>);
 begin
+  Diary := ReadFromFile;
   while true do
     begin
       'A - Добавление события'.PrintLn;
@@ -199,6 +244,7 @@ begin
           end;
       end;
     end;
+    WriteToFile(Diary);
 end;
 
 {$endregion Menu}
