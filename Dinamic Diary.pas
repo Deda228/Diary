@@ -1,4 +1,4 @@
-﻿uses System.Collections.Generic, System.Globalization; 
+﻿uses System.Globalization; 
 
 type
   Entry = record
@@ -7,35 +7,23 @@ type
     Done: boolean;
   end;
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
+{$region Compare}
   
 function CompareEntriesByTime(const Entry1, Entry2: Entry): integer;
 begin
-  if Entry1.Time < Entry2.Time then
-    Result := -1
-  else if Entry1.Time > Entry2.Time then
-    Result := 1
-  else
-    Result := 0;
+  Result :=DateTime.Compare(Entry1.time,Entry2.Time);
 end;
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
+{$endregion}
 
-procedure CreateList(var Diary: List<Entry>);
+{$region Add}
+procedure AddEntry(Diary: List<Entry>);
 begin
-  Diary := new List<Entry>;
-end;
-
-procedure AddEntry(var Diary: List<Entry>);
-var
-  NewEntry: Entry;
-begin
+  var NewEntry: Entry;
   try
-    NewEntry.Time := DateTime.Parse(readstring('Введите дату (дд.мм.гггг чч:мм): '), new CultureInfo('ru-RU'));
+    NewEntry.Time := DateTime.ParseExact(readstring('Введите дату (дд.мм.гггг чч:мм): '), 'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU'));
   except
-    on e: Exception do 
+    on e: System.FormatException do 
       begin
         println;
         println('Ошибка при вводе даты и времени: ', e.Message);
@@ -49,14 +37,12 @@ begin
   Diary.Add(NewEntry);
   Diary.Sort(CompareEntriesByTime);
 end;
+{$endregion}
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-procedure PrintEntries(var Diary: List<Entry>);
-var
-  CurrentYear, CurrentMonth, CurrentDayOfWeek: integer;
-  CurrentDate: DateTime;
+{$region Print}
+procedure PrintEntries(Diary: List<Entry>);
 begin
+  
   if Diary.Count = 0 then
   begin
     Console.WriteLine('Дневник пуст.');
@@ -67,10 +53,10 @@ begin
   Console.WriteLine('События в дневнике:');
   println;
 
-  CurrentDate := Diary[0].Time;
-  CurrentYear := CurrentDate.Year;
-  CurrentMonth := CurrentDate.Month;
-  CurrentDayOfWeek := integer(CurrentDate.DayOfWeek);
+  var CurrentDate := Diary[0].Time;
+  var CurrentYear := CurrentDate.Year;
+  var CurrentMonth := CurrentDate.Month;
+  var CurrentDayOfWeek := integer(CurrentDate.DayOfWeek);
 
   Console.WriteLine('Год: {0}', CurrentYear);
   Console.WriteLine('Месяц: {0}', Diary[0].Time.ToString('MMMM', CultureInfo.CurrentCulture));
@@ -102,111 +88,103 @@ begin
 
   println('-----------------------------------------');
 end;
+{$endregion}
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//Дописать код и исправить двойной вывод
-
-procedure EditEntry(Var Diary: List<Entry>); 
-var
-  num: integer;
-  choice: string;
-  REntry: Entry;
+{$region Edit}
+procedure EditEntry(Diary: List<Entry>); 
 begin
-  PrintEntries(Diary);
+  var num : integer;
   repeat
-    num := readinteger('Выберите порядковый номер записи, которую хотите изменить:');
-    println;
-  until num <= diary.Count;
+    Console.Clear; 
+    PrintEntries(Diary);
+    num := ReadLnInteger('Выберите порядковый номер записи, которую хотите изменить:');
+  until (num <= Diary.Count) and (num > 0);
  
-  Repeat
-    println('Что хотите изменить?');
-    println;
-    println('A - Дату и время события');
-    println('B - Описание события');
-    println('C - Статус события');
-    println('X - Назад');
-    println;
-    choice := readstring('Выбор: ');
-    if (not choice.InRange('A','D')) And (choice <> 'X') then 
-      begin
-        writeln('Неправильный ввод данных.');
-        continue;
+  While true do
+    begin
+      Console.Clear;
+      writeln('Что хотите изменить?');
+      writeln;
+      writeln('A - Дату и время события');
+      writeln('B - Описание события');
+      writeln('C - Статус события');
+      writeln('X - Назад');
+      writeln;
+      var Choice := ReadLnChar('Выбор: ');
+      var REntry : Entry;
+      case upcase(choice) of
+        
+        'X': Break;
+        
+        'A': begin
+               try
+                 REntry.Time := DateTime.ParseExact(readstring('Введите дату и время события (дд.мм.гггг чч:мм): '),'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU'));
+                 REntry.Done := Diary[num-1].Done;
+                 REntry.Task := Diary[num-1].Task;
+                 Diary[num-1] := REntry;
+               except
+                 on e: System.FormatException do begin
+                   writeln;
+                   writeln('Ошибка при вводе даты и времени: ', e.Message);
+                   writeln;
+                   exit;
+                 end;
+               end;
+             end;
+             
+        'B': begin
+               REntry.Task := ReadLnString('Введите новое описание события: ');
+               REntry.Time := Diary[num-1].Time;
+               REntry.Done := Diary[num-1].Done;
+               Diary[num-1] := REntry;
+             end;
+             
+        'C': begin
+               REntry.Done := ReadLnBoolean('Введите новый статус события (True/False): ');
+               REntry.Time := Diary[num-1].Time;
+               REntry.Task := Diary[num-1].Task;
+               Diary[num-1] := REntry;
+             end;
+             
+        else writeln('Неправильный ввод данных.');
+        
       end;
-    if 'X' in choice then exit;
-    if 'A' in choice then
-      begin
-        try
-          REntry.Time := DateTime.Parse(readstring('Введите дату (дд.мм.гггг чч:мм): '), new CultureInfo('ru-RU'));
-          REntry.Done := Diary[num-1].Done;
-          REntry.Task := Diary[num-1].Task;
-          Diary[num-1] := REntry;
-        except
-          on e: Exception do 
-            begin
-              println;
-              println('Ошибка при вводе даты и времени: ', e.Message);
-              println;
-              exit;
-            end;
-        end;
-      end;
-  until choice = 'X';
+  end; 
+  println;
 end;
+{$endregion}
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-
-Procedure MainMenu(Var Diary: List<Entry>);
-var
-  choice: string;
+{$region Menu}
+Procedure MainMenu(Diary: List<Entry>);
 begin
-  Repeat
-    println('A - Добавление события');
-    println('B - Просмотр событий');
-    println('C - Редактирование событий');
-    println('X - Выход');
-    println;
-    Write('Выбор: ');
-    readln(choice);
-    case choice of
-      'A':
-        begin
-          Console.Clear;
-          AddEntry(Diary);
+  while true do
+    begin
+      println('A - Добавление события');
+      println('B - Просмотр событий');
+      println('C - Редактирование событий');
+      println('X - Выход');
+      println;
+      var choice := ReadLnChar('Выбор: ');
+      Console.Clear;
+      case choice of
+        'A': AddEntry(Diary);
+        'B': PrintEntries(Diary);
+        'C': EditEntry(Diary);
+        'X': begin 
+              println('До свидания!');
+              break
         end;
-      'B':
-        begin
-          Console.Clear;
-          PrintEntries(Diary);
-        end;
-      'C':
-        begin
-          Console.Clear;
-          EditEntry(Diary);
-        end;
-      'X':
-        begin
-          Console.Clear;
-          println('До свидания!');
-        end
-      else
-        begin
-          console.Clear;
-          println('Ваш выбор не соответствует предложенному, попробуйте еще раз');
-          println;
-        end;
+        else
+          begin
+            println('Ваш выбор не соответствует предложенному, попробуйте еще раз');
+            println;
+          end;
+      end;
     end;
-  until choice = 'X' ;
 end;
-
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-
-var
-  Diary: List<Entry>;
+{$endregion}
 
 begin
-  CreateList(Diary);
+  var Diary: List<Entry> := new List<Entry>;
   MainMenu(Diary);
 end.
