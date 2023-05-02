@@ -72,6 +72,10 @@ begin
   CurrentMonth := CurrentDate.Month;
   CurrentDayOfWeek := integer(CurrentDate.DayOfWeek);
 
+  Console.WriteLine('Год: {0}', CurrentYear);
+  Console.WriteLine('Месяц: {0}', Diary[0].Time.ToString('MMMM', CultureInfo.CurrentCulture));
+  Console.WriteLine('День недели: {0}', Diary[0].Time.ToString('dddd', CultureInfo.CurrentCulture));
+
   for var i := 0 to Diary.Count - 1 do
   begin
     if (Diary[i].Time.Year <> CurrentYear) then
@@ -91,11 +95,63 @@ begin
       CurrentDayOfWeek := integer(Diary[i].Time.DayOfWeek);
       Console.WriteLine('День недели: {0}', Diary[i].Time.ToString('dddd', CultureInfo.CurrentCulture));
     end;
-
-    Console.WriteLine(' {0} - {1} - {2}', Diary[i].Time.ToString('dd.MM.yyyy HH:mm'), Diary[i].Task, Diary[i].Done);
+    println;
+    Console.WriteLine('{0}. {1} - {2} - {3}',i+1 ,Diary[i].Time.ToString('dd.MM.yyyy HH:mm'), Diary[i].Task, Diary[i].Done);
+    println;
   end;
 
-  println;
+  println('-----------------------------------------');
+end;
+
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+//Дописать код и исправить двойной вывод
+
+procedure EditEntry(Var Diary: List<Entry>); 
+var
+  num: integer;
+  choice: string;
+  REntry: Entry;
+begin
+  PrintEntries(Diary);
+  repeat
+    num := readinteger('Выберите порядковый номер записи, которую хотите изменить:');
+    println;
+  until num <= diary.Count;
+ 
+  Repeat
+    println('Что хотите изменить?');
+    println;
+    println('A - Дату и время события');
+    println('B - Описание события');
+    println('C - Статус события');
+    println('X - Назад');
+    println;
+    choice := readstring('Выбор: ');
+    if (not choice.InRange('A','D')) And (choice <> 'X') then 
+      begin
+        writeln('Неправильный ввод данных.');
+        continue;
+      end;
+    if 'X' in choice then exit;
+    if 'A' in choice then
+      begin
+        try
+          REntry.Time := DateTime.Parse(readstring('Введите дату (дд.мм.гггг чч:мм): '), new CultureInfo('ru-RU'));
+          REntry.Done := Diary[num-1].Done;
+          REntry.Task := Diary[num-1].Task;
+          Diary[num-1] := REntry;
+        except
+          on e: Exception do 
+            begin
+              println;
+              println('Ошибка при вводе даты и времени: ', e.Message);
+              println;
+              exit;
+            end;
+        end;
+      end;
+  until choice = 'X';
 end;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -108,6 +164,7 @@ begin
   Repeat
     println('A - Добавление события');
     println('B - Просмотр событий');
+    println('C - Редактирование событий');
     println('X - Выход');
     println;
     Write('Выбор: ');
@@ -122,6 +179,11 @@ begin
         begin
           Console.Clear;
           PrintEntries(Diary);
+        end;
+      'C':
+        begin
+          Console.Clear;
+          EditEntry(Diary);
         end;
       'X':
         begin
