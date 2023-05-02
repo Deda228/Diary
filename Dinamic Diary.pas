@@ -1,4 +1,6 @@
-﻿uses System.Globalization, System.IO, System; 
+﻿uses System.Globalization, 
+     System.IO,
+     System;
 
 {$region Type}
 
@@ -7,27 +9,32 @@ type
     DateAndTime: DateTime;
     Task: string;
     Done: boolean;
+    
     Constructor (NewDateAndTime: DateTime; NewTask: string; NewDone: boolean);
     begin
       DateAndTime := NewDateAndTime;
       Task := NewTask; 
       Done := NewDone; 
     end;
+    
     function WithDone(New_status:boolean):Entry;
     begin
       Result := self;
       Result.Done := New_status;
     end;
+    
     function WithTask(New_Task: string): Entry;
     begin
       Result := self;
       Result.Task := New_Task;
     end;
+    
     function WithDateAndTime(New_Date: datetime): Entry;
     begin
       Result := self;
       Result.DateAndTime := New_Date;
     end;
+    
   end;
   
 {$endregion Type}
@@ -45,9 +52,8 @@ end;
 
 procedure AddEntry(Diary: List<Entry>);
 begin
-  var NewEntry: Entry;
   try
-    NewEntry.DateAndTime := DateTime.ParseExact(readstring('Введите дату (дд.мм.гггг чч:мм): '), 'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU'));
+    Diary.Add(Entry.Create(DateTime.ParseExact(readstring('Введите дату (дд.мм.гггг чч:мм): '), 'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU')),readstring('Введите описание к событию: '),false));
   except
     on e: System.FormatException do 
       begin
@@ -57,10 +63,7 @@ begin
         exit;
       end;
   end;
-  NewEntry.Task := readstring('Введите описание к событию: ');
   println;
-  NewEntry.Done := false;
-  Diary.Add(NewEntry);
   Diary.Sort(CompareEntriesByTime);
 end;
 
@@ -183,21 +186,22 @@ end;
 
 {$endregion Edit}
 
-{$region File}
+{$region ToFile}
 
 procedure WriteToFile(Diary: List<Entry>);
 begin
-  var fs := new FileStream('diary.txt', FileMode.Create);
-  var sw := new StreamWriter(fs);
+  var sw := new StreamWriter(new FileStream('diary.txt', FileMode.Create));
   for var i := 0 to Diary.Count - 1 do sw.WriteLine(Diary[i].DateAndTime + '|' + Diary[i].Task + '|' + Diary[i].Done.ToString());
   sw.Close();
-  fs.Close();
 end;
+
+{$endregion toFile}
+
+{$region FromFile}
 
 function ReadFromFile(): List<Entry>;
 begin
-  var fs := new FileStream('diary.txt', FileMode.OpenOrCreate);
-  var sr := new StreamReader(fs);
+  var sr := new StreamReader(new FileStream('diary.txt', FileMode.OpenOrCreate));
   var Diary := new List<Entry>;
   while not sr.EndOfStream do
     begin
@@ -206,12 +210,11 @@ begin
       Diary.Add(new_entry);
     end;
   sr.Close();
-  fs.Close();
   Diary.Sort(CompareEntriesByTime);
   Result := Diary;
 end;
 
-{$endregion File}
+{$endregion FromFile}
 
 {$region Menu}
 
@@ -223,6 +226,7 @@ begin
       'A - Добавление события'.PrintLn;
       'B - Просмотр событий'.PrintLn;
       'C - Редактирование событий'.Println;
+      'D - Очистка ежедневника'.Println;
       'X - Выход'.Println;
       println;
       var choice := ReadLnChar('Выбор: ');
@@ -231,6 +235,7 @@ begin
         'A': AddEntry(Diary);
         'B': PrintEntries(Diary);
         'C': EditEntry(Diary);
+        'D': Diary.Clear;        
         'X': 
         begin
           'До свидания!'.PrintLn;
