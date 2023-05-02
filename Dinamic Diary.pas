@@ -1,14 +1,33 @@
 ﻿uses System.Globalization, System.IO, System; 
 
+{$region Type}
+
 type
   Entry = record
     DateAndTime: DateTime;
     Task: string;
     Done: boolean;
+    function WithDone(New_status:boolean):Entry;
+    begin
+      Result := self;
+      Result.Done := New_status;
+    end;
+    function WithTask(New_Task: string): Entry;
+    begin
+      Result := self;
+      Result.Task := New_Task;
+    end;
+    function WithDateAndTime(New_Date: datetime): Entry;
+    begin
+      Result := self;
+      Result.DateAndTime := New_Date;
+    end;
   end;
-
-{$region}
   
+{$endregion Type}
+
+{$region Compare}
+
 function CompareEntriesByTime(Entry1, Entry2: Entry): integer;
 begin
   Result :=DateTime.Compare(Entry1.DateAndTime,Entry2.DateAndTime);
@@ -16,7 +35,8 @@ end;
 
 {$endregion Compare}
 
-{$region}
+{$region Add}
+
 procedure AddEntry(Diary: List<Entry>);
 begin
   var NewEntry: Entry;
@@ -26,7 +46,7 @@ begin
     on e: System.FormatException do 
       begin
         println;
-        println('Ошибка при вводе даты и времени: ', e.Message);
+        ('Ошибка при вводе даты и времени: ', e.Message).Println;
         println;
         exit;
       end;
@@ -37,9 +57,11 @@ begin
   Diary.Add(NewEntry);
   Diary.Sort(CompareEntriesByTime);
 end;
+
 {$endregion Add}
 
-{$region}
+{$region Print}
+
 procedure PrintEntries(Diary: List<Entry>);
 begin
   var ru_ci := CultureInfo.CreateSpecificCulture('ru-RU');
@@ -88,18 +110,20 @@ begin
 
   Println('-'*50);
 end;
+
 {$endregion Print}
 
-{$region}
+{$region Edit}
+
 procedure EditEntry(Diary: List<Entry>); 
 begin
-  var num : integer;
+  var Entry_Ind : integer;
   repeat
     Console.Clear; 
     PrintEntries(Diary);
     if Diary.Count = 0 then exit;
-    num := ReadLnInteger('Выберите порядковый номер записи, которую хотите изменить:');
-  until (cardinal(num) <= Diary.Count);
+    Entry_Ind := ReadLnInteger('Выберите порядковый номер записи, которую хотите изменить:') - 1;
+  until (cardinal(Entry_Ind) < Diary.Count);
  
   While true do
     begin
@@ -120,46 +144,33 @@ begin
         'A': 
         begin
           try
-            REntry.DateAndTime := DateTime.ParseExact(readstring('Введите дату и время события (дд.мм.гггг чч:мм): '),'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU'));
-            REntry.Done := Diary[num-1].Done;
-            REntry.Task := Diary[num-1].Task;
-            Diary[num-1] := REntry;
+            Diary[Entry_Ind] := Diary[Entry_Ind].WithDateAndTime(DateTime.ParseExact(readstring('Введите дату и время события (дд.мм.гггг чч:мм): '),'dd.MM.yyyy HH:mm', new CultureInfo('ru-RU')));
           except
             on e: System.FormatException do 
                 begin
                   println;
                   ('Ошибка при вводе даты и времени: ', e.Message).Println;
                   println;
-                  exit;
+                  break;
                 end;
           end;
         end;
              
-        'B': 
-        begin
-          REntry.Task := ReadLnString('Введите новое описание события: ');
-          REntry.DateAndTime := Diary[num-1].DateAndTime;
-          REntry.Done := Diary[num-1].Done;
-          Diary[num-1] := REntry;
-        end;
-             
-        'C': 
-        begin
-          REntry.Done := ReadLnBoolean('Введите новый статус события (True/False): ');
-          REntry.DateAndTime := Diary[num-1].DateAndTime;
-          REntry.Task := Diary[num-1].Task;
-          Diary[num-1] := REntry;
-        end;
-             
+        'B': Diary[Entry_Ind] := Diary[Entry_Ind].WithTask(ReadLnString('Введите новое описание события: '));
+
+        'C': Diary[Entry_Ind] := Diary[Entry_Ind].WithDone(ReadLnBoolean('Введите новый статус события (True/False): '));             
+        
         else writeln('Неправильный ввод данных.');
         
       end;
   end; 
   println;
 end;
+
 {$endregion Edit}
 
-{$region}
+{$region Menu}
+
 Procedure MainMenu(Diary: List<Entry>);
 begin
   while true do
@@ -189,8 +200,8 @@ begin
       end;
     end;
 end;
-{$endregion Menu}
 
+{$endregion Menu}
 
 begin
   MainMenu(new List<Entry>);
