@@ -190,9 +190,14 @@ end;
 
 procedure WriteToFile(Diary: List<Entry>);
 begin
-  var sw := new StreamWriter(new FileStream('diary.txt', FileMode.Create));
-  for var i := 0 to Diary.Count - 1 do sw.WriteLine(Diary[i].DateAndTime + '|' + Diary[i].Task + '|' + Diary[i].Done.ToString());
-  sw.Close();
+  var bw := new BinaryWriter(new FileStream('diary.bin', FileMode.Create));
+  for var i := 0 to Diary.Count - 1 do
+    begin
+      bw.Write(Diary[i].DateAndTime.Ticks);
+      bw.Write(Diary[i].Task);
+      bw.Write(Diary[i].Done);
+    end;
+  bw.Close();
 end;
 
 {$endregion toFile}
@@ -201,15 +206,17 @@ end;
 
 function ReadFromFile(): List<Entry>;
 begin
-  var sr := new StreamReader(new FileStream('diary.txt', FileMode.OpenOrCreate));
+  var br := new BinaryReader(new FileStream('diary.bin', FileMode.OpenOrCreate));
   var Diary := new List<Entry>;
-  while not sr.EndOfStream do
+  while br.BaseStream.Position < br.BaseStream.Length do
     begin
-      var parts := sr.ReadLine.Split('|');
-      var new_entry: Entry := New Entry(DateTime.Parse(parts[0]),parts[1],Boolean.Parse(parts[2]));
+      var dateTicks := br.ReadInt64();
+      var task := br.ReadString();
+      var done := br.ReadBoolean();
+      var new_entry: Entry := New Entry(new DateTime(dateTicks), task, done);
       Diary.Add(new_entry);
     end;
-  sr.Close();
+  br.Close();
   Diary.Sort(CompareEntriesByTime);
   Result := Diary;
 end;
@@ -255,5 +262,7 @@ end;
 {$endregion Menu}
 
 begin
+  Console.Title := 'Ежедневник';
+  Console.ForegroundColor := ConsoleColor.Yellow;
   MainMenu(new List<Entry>);
 end.
