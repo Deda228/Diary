@@ -43,6 +43,57 @@ type
   
 {$endregion Type}
 
+{$region Compare} 
+ 
+function CompareEntriesByTime(Entry1, Entry2: Entry): integer; 
+begin 
+  Result :=DateTime.Compare(Entry1.DateAndTime,Entry2.DateAndTime); 
+end; 
+ 
+{$endregion Compare} 
+
+{$region Add} 
+ 
+function AddEntry(Diary: List<Entry>): object; 
+begin
+  var SP := new StackPanel;
+  
+  var T1 := new System.Windows.Controls.Label;
+  SP.Children.Add(T1);
+  T1.Content := 'Введите описание события:';
+  T1.FontSize := 20;
+  T1.HorizontalContentAlignment := HorizontalAlignment.Center;
+  
+  var TB := new TextBox;
+  SP.Children.Add(TB);
+  TB.FontSize := 25;
+  TB.HorizontalContentAlignment := HorizontalAlignment.Center;
+  
+  var T2 := new System.Windows.Controls.Label;
+  SP.Children.Add(T2);
+  T2.Content := 'Введите дату события:';
+  T2.FontSize := 20;
+  T2.HorizontalContentAlignment := HorizontalAlignment.Center; 
+  
+  var DP := new DatePicker;
+  SP.Children.Add(DP);
+  DP.FontSize := 20;
+  DP.HorizontalContentAlignment := HorizontalAlignment.Center; 
+  
+  var addButton := new Button;
+  SP.Children.Add(addButton);
+  addbutton.Content := 'Подтвердить';
+  addButton.Click += (o,e) -> 
+    begin
+      Diary.Add(Entry.Create(DP.SelectedDate.Value, TB.Text, False));
+      SP.Children.Clear();
+    end;
+    
+  result := SP;
+end;
+
+{$endregion Add} 
+
 {$region Menu}
 
 Procedure MainMenu(Diary: List<Entry>);
@@ -63,11 +114,14 @@ begin
     button.Content := name;
     button.Width := 200;
     button.Height := 100;
-    button.Click += (o,e) -> when_clicked();
+    button.Click += (o,e) -> 
+      begin 
+        CC.Content :=  when_clicked(); 
+      end;
     Butcont.Children.Add(button);
   end;
   
-  //add_button('Добавить событие', ()->  );
+  add_button('Добавить событие', ()-> AddEntry(Diary));
   //add_button('Показать  событие', ()->  );
   //add_button('Редактировать событие', ()->  );
   //add_button('Очистить ежедневник', ()->  );
@@ -83,6 +137,8 @@ end;
 
 {$endregion Menu}
 
+{$region Main}
 begin
   MainMenu(new List<Entry>);
 end.
+{$endregion Main}
