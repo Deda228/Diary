@@ -174,35 +174,45 @@ end;
 
 {$region Print}
 
-function PrintEntries(Diary: List<Entry>): DataGrid;
+function PrintEntries(Diary: List<Entry>): DockPanel;
 begin
-  var dataGrid := new DataGrid;
-  dataGrid.AutoGenerateColumns := False;
+  var DP := new DockPanel;
+  DP.VerticalAlignment := VerticalAlignment.Top;
+  DP.HorizontalAlignment := HorizontalAlignment.Left;
   
-  var dateColumn := new DataGridTextColumn;
-  dateColumn.Header := 'Дата';
-  dateColumn.Binding := new System.Windows.Data.Binding('DateAndTime');
-  dateColumn.Binding.StringFormat := 'dd.MM.yyyy';
-  dataGrid.Columns.Add(dateColumn);
+  var SP1 := new StackPanel;
+  var SP2 := new StackPanel;
   
-  var timeColumn := new DataGridTextColumn;
-  timeColumn.Header := 'Время';
-  timeColumn.Binding := new System.Windows.Data.Binding('DateAndTime');
-  timeColumn.Binding.StringFormat := 'HH:mm';
-  dataGrid.Columns.Add(timeColumn);
+  for var i:= 0 to diary.Count-1 do 
+    begin
+      var DateAndTime := new TextBox;
+      var Task := new TextBox;
+      
+      DateAndTime.Text := Diary[i].DateAndTime.ToString;
+      Task.Text := Diary[i].Task;
+      
+      DateAndTime.FontSize := 25;
+      Task.FontSize := 20;
+      
+      Task.TextWrapping := TextWrapping.Wrap;
+      
+      DateAndTime.Width := 270;
+      Task.Width := 600; 
+      
+      DateAndTime.Height := 100;
+      Task.Height := 100;
+      
+      DateAndTime.IsEnabled := false;
+      task.IsEnabled := false;
+               
+      SP1.Children.Add(DateAndTime);
+      SP2.Children.Add(Task);
+    end;
+      
+  DP.Children.Add(SP1);
+  DP.Children.Add(SP2);
   
-  var descriptionColumn := new DataGridTextColumn;
-  descriptionColumn.Header := 'Описание события';
-  descriptionColumn.Binding := new System.Windows.Data.Binding('Task');
-  dataGrid.Columns.Add(descriptionColumn);
-  
-  var statusColumn := new DataGridTextColumn;
-  statusColumn.Header := 'Статус';
-  statusColumn.Binding := new System.Windows.Data.Binding('Done');
-  statusColumn.Binding.StringFormat := '{}{0:Выполнено;Не выполнено}';
-  dataGrid.Columns.Add(statusColumn);
-  
-  result := dataGrid;
+  Result := DP;
 end;
 
 {$endregion Print}
