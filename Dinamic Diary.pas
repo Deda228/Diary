@@ -174,47 +174,50 @@ end;
 
 {$region Print}
 
-function PrintEntries(Diary: List<Entry>): DockPanel;
+function PrintEntries(Diary: List<Entry>): Grid;
 begin
-  var DP := new DockPanel;
-  DP.VerticalAlignment := VerticalAlignment.Top;
-  DP.HorizontalAlignment := HorizontalAlignment.Left;
+  var tablet := new Grid;
+  tablet.Language := System.Windows.Markup.XmlLanguage.GetLanguage('ru-RU');
+  tablet.VerticalAlignment := VerticalAlignment.Center;
+  tablet.HorizontalAlignment := HorizontalAlignment.Center;
+  tablet.ShowGridLines := True;
   
-  var SP1 := new StackPanel;
-  var SP2 := new StackPanel;
+  var colDef1 := new ColumnDefinition;
+  tablet.ColumnDefinitions.Add(colDef1);
   
-  for var i:= 0 to diary.Count-1 do 
-    begin
-      var DateAndTime := new TextBox;
-      var Task := new TextBox;
-      
-      DateAndTime.Text := Diary[i].DateAndTime.ToString;
-      Task.Text := Diary[i].Task;
-      
-      DateAndTime.FontSize := 25;
-      Task.FontSize := 20;
-      
-      Task.TextWrapping := TextWrapping.Wrap;
-      
-      DateAndTime.Width := 270;
-      Task.Width := 600; 
-      
-      DateAndTime.Height := 100;
-      Task.Height := 100;
-      
-      DateAndTime.IsEnabled := false;
-      task.IsEnabled := false;
-               
-      SP1.Children.Add(DateAndTime);
-      SP2.Children.Add(Task);
-    end;
-      
-  DP.Children.Add(SP1);
-  DP.Children.Add(SP2);
   
-  Result := DP;
+  var colDef2 := new ColumnDefinition;
+  tablet.ColumnDefinitions.Add(colDef2);
+  
+  var colDef3 := new ColumnDefinition;
+  tablet.ColumnDefinitions.Add(colDef3);
+  
+  for var i := 0 to Diary.Count - 1 do
+  begin
+    var row := new RowDefinition;
+    tablet.RowDefinitions.Add(row);
+    
+    var txt1 := new TextBlock;
+    txt1.Text := Diary[i].DateAndTime.ToString;
+    Grid.SetColumn(txt1, 0); 
+    Grid.SetRow(txt1, i); 
+    tablet.Children.Add(txt1);
+    
+    var txt2 := new TextBlock;
+    txt2.Text := Diary[i].Task;
+    Grid.SetColumn(txt2, 1); 
+    Grid.SetRow(txt2, i); 
+    tablet.Children.Add(txt2);
+    
+    var txt3 := new TextBlock;
+    txt3.Text := Diary[i].Done.ToString;
+    Grid.SetColumn(txt3, 2); 
+    Grid.SetRow(txt3, i); 
+    tablet.Children.Add(txt3);
+  end;
+  
+  result := tablet;
 end;
-
 {$endregion Print}
 
 {$region Menu}
