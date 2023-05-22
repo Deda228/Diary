@@ -5,7 +5,8 @@
 
 uses System.Windows,
      System.Windows.Controls,
-     System.Windows.Media;
+     System.Windows.Media,
+     System.IO;
 
 {$region Type}
 
@@ -136,6 +137,12 @@ begin
   minuteTextBox.HorizontalContentAlignment := HorizontalAlignment.Center;
   minuteTextBox.MaxLength := 2;
     
+  var HourSet : set of string := [];  
+  for var num := 0 to 23 do Include(HourSet, num.ToString);
+  
+  var MinuteSet : set of string := [];  
+  for var num := 0 to 59 do Include(MinuteSet, num.ToString);
+  
   var addButton := new Button;
   SP.Children.Add(addButton);
   addbutton.HorizontalAlignment := HorizontalAlignment.Left;
@@ -145,22 +152,27 @@ begin
   addButton.Content := 'Подтвердить';
   addButton.Click += (o, e) -> 
     begin
-      if (DP.SelectedDate <> nil) and (TB.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '') then
+      if (DP.SelectedDate <> nil) and (TB.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '') and (hourTextBox.Text in hourset) and (minuteTextBox.Text in MinuteSet) then
         begin
-          var hour := Convert.ToInt32(hourTextBox.Text);
-          var minute := Convert.ToInt32(minuteTextBox.Text);
-          if (hour >= 0) and (hour <= 23) and (minute >= 0) and (minute <= 59) then
+          if (Convert.ToInt32(hourTextBox.Text) >= 0) and (Convert.ToInt32(hourTextBox.Text) <= 23) and (Convert.ToInt32(minuteTextBox.Text) >= 0) and (Convert.ToInt32(minuteTextBox.Text) <= 59) then
             begin
-              var selectedDateTime := new DateTime(DP.SelectedDate.Value.Year, DP.SelectedDate.Value.Month, DP.SelectedDate.Value.Day, hour, minute, 0);
+              var selectedDateTime := new DateTime(DP.SelectedDate.Value.Year, DP.SelectedDate.Value.Month, DP.SelectedDate.Value.Day, Convert.ToInt32(hourTextBox.Text), Convert.ToInt32(minuteTextBox.Text), 0);
               Diary.Add(Entry.Create(selectedDateTime, TB.Text, False));
               Diary.Sort(CompareEntriesByTime);
-              SP.Children.Clear();
+              
+              var Text := new TextBlock;
+              SPFon.Child := Text;
+              Text.Text := 'Добавление прошло успешно!';
+              Text.FontSize := 50;
+              Text.VerticalAlignment := VerticalAlignment.Center;
+              Text.HorizontalAlignment := HorizontalAlignment.Center;
+              
             end
           else
-            MessageBox.Show('Время введено неверно', 'Ошибка!');
+            MessageBox.Show('Время введено неверно', 'Ошибка!', MessageBoxButton.OK, MessageBoxImage.Exclamation);
         end
       else 
-        MessageBox.Show('Дата введена неверно', 'Ошибка!');
+        MessageBox.Show('Некорректный ввод', 'Ошибка!', MessageBoxButton.OK, MessageBoxImage.Exclamation);
     end;
   result := SPFon;
 end;
@@ -467,6 +479,12 @@ begin
           DockP3.Children.Add(CheckB);
           CheckB.VerticalAlignment := VerticalAlignment.Center;
           
+          var HourSet : set of string := [];  
+          for var num := 0 to 23 do Include(HourSet, num.ToString);
+          
+          var MinuteSet : set of string := [];  
+          for var num := 0 to 59 do Include(MinuteSet, num.ToString);
+          
           var NextButton := new Button;
           SP.Children.Add(NextButton);
           NextButton.HorizontalAlignment := HorizontalAlignment.Left;
@@ -477,7 +495,7 @@ begin
           NextButton.Content :='Готово';
           NextButton.Click += (o, e) -> 
             begin
-              if (DP.SelectedDate <> nil) and (Text1.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '')  then
+              if (DP.SelectedDate <> nil) and (Text1.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '') and (hourTextBox.Text in hourset) and (minuteTextBox.Text in MinuteSet)  then
                 begin
                   if (hourTextBox.Text.ToInteger >= 0) and (hourTextBox.Text.ToInteger <= 23) and (minuteTextBox.Text.ToInteger >= 0) and (minuteTextBox.Text.ToInteger <= 59) then
                     begin
@@ -490,7 +508,7 @@ begin
                     MessageBox.Show('Время введено неверно', 'Ошибка!');
                 end
               else 
-                MessageBox.Show('Дата введена неверно', 'Ошибка!');
+                MessageBox.Show('Некорректный ввод', 'Ошибка!');
             end;
           
         end;
@@ -505,9 +523,72 @@ end;
 
 {$region Clear}
 
-
+function ClearEntries(Diary: List<Entry>): border;
+begin
+  var Fon := new Border;
+  Fon.Background := Brushes.AliceBlue;
+  
+  if diary.Count = 0 then 
+    begin
+      var EmptyText := new TextBlock;
+      Fon.Child := EmptyText;
+      EmptyText.Text := 'Ежедневник пуст!';
+      EmptyText.FontSize := 50;
+      EmptyText.VerticalAlignment := VerticalAlignment.Center;
+      EmptyText.HorizontalAlignment := HorizontalAlignment.Center;
+      result := Fon;
+    end
+  else if (MessageBox.Show('Вы уверены, что хотите удалить все события?' , 'Подтверждение' , MessageBoxButton.YesNo, MessageBoxImage.Question) = MessageBoxResult.Yes) then
+        begin
+          diary.Clear;
+          var Text := new TextBlock;
+          Fon.Child := Text;
+          Text.Text := 'Ежедневник очищен!';
+          Text.FontSize := 50;
+          Text.VerticalAlignment := VerticalAlignment.Center;
+          Text.HorizontalAlignment := HorizontalAlignment.Center;
+          result := Fon;
+        end;
+end;
 
 {$endregion Clear}
+
+{$region ToFile} 
+ 
+procedure WriteToFile(Diary: List<Entry>); 
+begin 
+  var bw := new BinaryWriter(new FileStream('diary.bin', FileMode.Create)); 
+  for var i := 0 to Diary.Count - 1 do 
+    begin 
+      bw.Write(Diary[i].DateAndTime.Ticks); 
+      bw.Write(Diary[i].Task); 
+      bw.Write(Diary[i].Done); 
+    end; 
+  bw.Close(); 
+end; 
+ 
+{$endregion toFile} 
+
+{$region FromFile} 
+ 
+function ReadFromFile(): List<Entry>; 
+begin 
+  var br := new BinaryReader(new FileStream('diary.bin', FileMode.OpenOrCreate)); 
+  var Diary := new List<Entry>; 
+  while br.BaseStream.Position < br.BaseStream.Length do 
+    begin 
+      var dateTicks := br.ReadInt64(); 
+      var task := br.ReadString(); 
+      var done := br.ReadBoolean(); 
+      var new_entry: Entry := New Entry(new DateTime(dateTicks), task, done); 
+      Diary.Add(new_entry); 
+    end; 
+  br.Close(); 
+  Diary.Sort(CompareEntriesByTime); 
+  Result := Diary; 
+end; 
+ 
+{$endregion FromFile} 
 
 {$region Menu}
 
@@ -517,6 +598,8 @@ begin
   win.MinHeight := 400;
   win.MinWidth := 800;
   win.Name:='Diary';
+  
+  Diary :=  ReadFromFile;
   
   var Okn := new DockPanel;
   win.Content := Okn;
@@ -555,7 +638,8 @@ begin
   add_button('Добавить событие', ()-> AddEntry(Diary));
   add_button('Показать  события', ()-> PrintEntries(Diary));
   add_button('Редактировать событие', ()-> EditEntry(Diary));
-  //add_button('Очистить ежедневник', ()->  );
+  add_button('Очистить ежедневник', ()-> ClearEntries(Diary));
+  //add_button('Настройки', ()-> );
   
   var exit_button := new Button;
   Butcont.Children.Add(exit_button);
@@ -563,8 +647,13 @@ begin
   exit_button.Width := 200;
   exit_button.Height := 100;
   exit_button.Margin := new Thickness(2);
-  exit_button.Click += (o,e) -> System.Windows.Application.Current.Shutdown(); 
-  
+  exit_button.Click += (o,e) ->  if (MessageBox.Show('Вы уверены, что хотите завершить выполнение программы?' , 'Подтверждение' , MessageBoxButton.YesNo, MessageBoxImage.Question) = MessageBoxResult.Yes) then 
+                                  begin
+                                    WriteToFile(Diary);
+                                    System.Windows.Application.Current.Shutdown();
+                                  end;
+
+ 
   Application.Create.Run(win);
 end;
 
