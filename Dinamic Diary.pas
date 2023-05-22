@@ -557,14 +557,23 @@ end;
  
 procedure WriteToFile(Diary: List<Entry>); 
 begin 
-  var bw := new BinaryWriter(new FileStream('diary.bin', FileMode.Create)); 
-  for var i := 0 to Diary.Count - 1 do 
-    begin 
-      bw.Write(Diary[i].DateAndTime.Ticks); 
-      bw.Write(Diary[i].Task); 
-      bw.Write(Diary[i].Done); 
-    end; 
-  bw.Close(); 
+  if diary.Count = 0 then
+    begin
+      var a : text;
+      assign(a,'diary.bin');
+      erase(a);
+    end
+  else
+    begin
+      var bw := new BinaryWriter(new FileStream('diary.bin', FileMode.Create));
+      for var i := 0 to Diary.Count - 1 do 
+        begin 
+          bw.Write(Diary[i].DateAndTime.Ticks); 
+          bw.Write(Diary[i].Task); 
+          bw.Write(Diary[i].Done); 
+        end; 
+        bw.Close();
+    end;
 end; 
  
 {$endregion toFile} 
@@ -598,8 +607,6 @@ begin
   win.MinHeight := 400;
   win.MinWidth := 800;
   win.Name:='Diary';
-  
-  Diary :=  ReadFromFile;
   
   var Okn := new DockPanel;
   win.Content := Okn;
@@ -661,6 +668,7 @@ end;
 
 {$region Main}
 begin
-  MainMenu(new List<Entry>);
+  var Diary := ReadFromFile;
+  MainMenu(Diary);
 end.
 {$endregion Main}
