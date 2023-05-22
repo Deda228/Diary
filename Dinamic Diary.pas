@@ -63,6 +63,7 @@ begin
   
   var SV := new ScrollViewer;
   SPFon.Child := SV;
+  SV.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
   
   var SP := new StackPanel;
   SV.Content := SP;
@@ -256,7 +257,7 @@ begin
     
     var txt1 := new TextBlock;
     tablet.Children.Add(txt1);
-    txt1.Text := Diary[i].DateAndTime.ToString;
+    txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
     txt1.HorizontalAlignment := HorizontalAlignment.Center;
     txt1.VerticalAlignment := VerticalAlignment.Center;
     txt1.Margin := new Thickness(20);
@@ -283,7 +284,8 @@ begin
     
     var txt3 := new TextBlock;
     tablet.Children.Add(txt3);
-    txt3.Text := Diary[i].Done.ToString;
+    if Diary[i].Done = true then txt3.Text := 'Выполнено'
+    else txt3.Text := 'Не выполнено';
     txt3.HorizontalAlignment := HorizontalAlignment.Center;
     txt3.VerticalAlignment := VerticalAlignment.Center;
     txt3.Margin := new Thickness(20);
@@ -450,6 +452,21 @@ begin
           minuteTextBox.MaxLength := 2;
           minuteTextBox.Text := Diary[CB.Text.ToInteger - 1].DateAndTime.Minute.ToString;
           
+          var DockP3 := new DockPanel;
+          SP.Children.Add(DockP3);
+          DockP3.HorizontalAlignment := HorizontalAlignment.Left;
+          DockP3.Margin := new Thickness(20); 
+          
+          var T5 := new System.Windows.Controls.Label;
+          DockP3.Children.Add(T5);
+          T5.Content := 'Выберите статус события: ';
+          T5.FontSize := 20;
+          T5.HorizontalContentAlignment := HorizontalAlignment.Center;
+          
+          var CheckB := new CheckBox;
+          DockP3.Children.Add(CheckB);
+          CheckB.VerticalAlignment := VerticalAlignment.Center;
+          
           var NextButton := new Button;
           SP.Children.Add(NextButton);
           NextButton.HorizontalAlignment := HorizontalAlignment.Left;
@@ -457,16 +474,16 @@ begin
           NextButton.Width := 200;
           NextButton.Height := 70;
           NextButton.FontSize := 30;
-          NextButton.Content := 'Готово';
+          NextButton.Content :='Готово';
           NextButton.Click += (o, e) -> 
             begin
-              if (DP.SelectedDate <> nil) and (Text1.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '') then
+              if (DP.SelectedDate <> nil) and (Text1.Text <> '') and (hourTextBox.Text <> '') and (minuteTextBox.Text <> '')  then
                 begin
-                  if (hour >= 0) and (hour <= 23) and (minute >= 0) and (minute <= 59) then
+                  if (hourTextBox.Text.ToInteger >= 0) and (hourTextBox.Text.ToInteger <= 23) and (minuteTextBox.Text.ToInteger >= 0) and (minuteTextBox.Text.ToInteger <= 59) then
                     begin
-                      Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithDateAndTime(DateTime.ParseExact(DP.SelectedDate.ToString + ' ' + hourTextBox.Text + ':' + minuteTextBox.Text,'dd.MM.yyyy HH:mm', new System.Globalization.CultureInfo('ru-RU')));
+                      Diary[CB.Text.ToInteger() - 1] := Diary[CB.Text.ToInteger() - 1].WithDateAndTime(DateTime.Parse(DP.SelectedDate.Value.Month.ToString() + '/' + DP.SelectedDate.Value.day.ToString() + '/' + DP.SelectedDate.Value.year.ToString() + ' ' + hourTextBox.Text + ':' + minuteTextBox.Text));
                       Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithTask(Text1.Text);
-                      Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithDone
+                      Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithDone(CheckB.IsChecked.Value);
                       SP.Children.Clear();
                     end
                   else
@@ -485,6 +502,12 @@ begin
 end;
 
 {$endregion Edit}
+
+{$region Clear}
+
+
+
+{$endregion Clear}
 
 {$region Menu}
 
@@ -518,6 +541,7 @@ begin
   var add_button := procedure(name: string; when_clicked: ()->object)->
   begin
     var button := new Button;
+    Butcont.Children.Add(button);
     button.Content := name;
     button.Width := 200;
     button.Height := 100;
@@ -526,14 +550,20 @@ begin
       begin 
         CC.Content :=  when_clicked(); 
       end;
-    Butcont.Children.Add(button);
   end;
   
   add_button('Добавить событие', ()-> AddEntry(Diary));
   add_button('Показать  события', ()-> PrintEntries(Diary));
   add_button('Редактировать событие', ()-> EditEntry(Diary));
   //add_button('Очистить ежедневник', ()->  );
-  //add_button('Выход', () -> );
+  
+  var exit_button := new Button;
+  Butcont.Children.Add(exit_button);
+  exit_button.Content := 'Выход';
+  exit_button.Width := 200;
+  exit_button.Height := 100;
+  exit_button.Margin := new Thickness(2);
+  exit_button.Click += (o,e) -> System.Windows.Application.Current.Shutdown(); 
   
   Application.Create.Run(win);
 end;
