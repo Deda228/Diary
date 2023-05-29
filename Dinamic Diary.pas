@@ -2,9 +2,12 @@
 {$reference PresentationFramework.dll}
 {$reference PresentationCore.dll}
 {$reference WindowsBase.dll}
+{$reference HardcodetNotifyIconWpf.dll}
+{$reference System.drawing.dll}
 
 uses System.Windows,
      System.Windows.Controls,
+     System.Drawing,
      System.Windows.Media,
      System.IO;
 
@@ -15,12 +18,14 @@ type
     DateAndTime: DateTime;
     Task: string;
     Done: boolean;
+    Importance: byte; 
     
-    Constructor (NewDateAndTime: DateTime; NewTask: string; NewDone: boolean);
+    Constructor (NewDateAndTime: DateTime; NewTask: string; NewDone: boolean; NewImportance: integer);
     begin
       DateAndTime := NewDateAndTime;
       Task := NewTask; 
       Done := NewDone; 
+      Importance := NewImportance;
     end;
     
     function WithDone(New_status:boolean):Entry;
@@ -45,14 +50,28 @@ type
   
 {$endregion Type}
 
-{$region Compare} 
+{$region CompareByTime} 
  
 function CompareEntriesByTime(Entry1, Entry2: Entry): integer; 
 begin 
   Result :=DateTime.Compare(Entry1.DateAndTime,Entry2.DateAndTime); 
 end; 
  
-{$endregion Compare} 
+{$endregion CompareByTime} 
+
+{$region CompareByImportance}
+
+function CompareByImportance(A, B: Entry): Integer;
+begin
+  if A.Importance < B.Importance then
+    Result := 1
+  else if A.Importance > B.Importance then
+    Result := -1
+  else
+    Result := 0;
+end;
+
+{$endregion CompareByImportance}
 
 {$region Add} 
  
@@ -136,7 +155,28 @@ begin
   minuteTextBox.Width := 50;
   minuteTextBox.HorizontalContentAlignment := HorizontalAlignment.Center;
   minuteTextBox.MaxLength := 2;
-    
+  
+  var DockP3 := new DockPanel;
+  SP.Children.Add(DockP3);
+  DockP3.HorizontalAlignment := HorizontalAlignment.Left;
+  DockP3.Margin := new Thickness(20);
+   
+  var T5 := new System.Windows.Controls.Label;
+  DockP3.Children.Add(T5);
+  T5.Content := 'Введите важность события: ';
+  T5.FontSize := 20;
+  T5.HorizontalContentAlignment := HorizontalAlignment.Center;
+  
+  var CB := new ComboBox;
+  DockP3.Children.Add(CB);
+  CB.VerticalContentAlignment := VerticalAlignment.Center;
+  CB.HorizontalAlignment := HorizontalAlignment.Left;
+  CB.Width := 100;
+  CB.FontSize := 30;
+  CB.Items.Add(1);
+  CB.Items.Add(2);
+  CB.Items.Add(3);
+  
   var HourSet : set of string := [];  
   for var num := 0 to 23 do Include(HourSet, num.ToString);
   
@@ -156,8 +196,9 @@ begin
         begin
           if (Convert.ToInt32(hourTextBox.Text) >= 0) and (Convert.ToInt32(hourTextBox.Text) <= 23) and (Convert.ToInt32(minuteTextBox.Text) >= 0) and (Convert.ToInt32(minuteTextBox.Text) <= 59) then
             begin
+              
               var selectedDateTime := new DateTime(DP.SelectedDate.Value.Year, DP.SelectedDate.Value.Month, DP.SelectedDate.Value.Day, Convert.ToInt32(hourTextBox.Text), Convert.ToInt32(minuteTextBox.Text), 0);
-              Diary.Add(Entry.Create(selectedDateTime, TB.Text, False));
+              Diary.Add(Entry.Create(selectedDateTime, TB.Text, False, CB.Text.ToInteger));
               Diary.Sort(CompareEntriesByTime);
               
               var Text := new TextBlock;
@@ -174,6 +215,7 @@ begin
       else 
         MessageBox.Show('Некорректный ввод', 'Ошибка!', MessageBoxButton.OK, MessageBoxImage.Exclamation);
     end;
+  Diary.Sort(CompareEntriesByTime); 
   result := SPFon;
 end;
 
@@ -185,126 +227,670 @@ function PrintEntries(Diary: List<Entry>): Border;
 begin
   var Fon := new Border;
   Fon.Background := Brushes.AliceBlue;
+
+  var SP := new StackPanel;
+  Fon.Child := SP;
+    
+  var DP := new DockPanel;
+  SP.Children.Add(DP);
+  DP.Background := Brushes.DarkGray;
+  
+  var T := new TextBlock;
+  DP.Children.Add(T);
+  T.Text := ' Виды сортировки: ';
+  T.FontSize := 30;
+  T.HorizontalAlignment := HorizontalAlignment.Stretch;
+  T.VerticalAlignment := VerticalAlignment.Center;
   
   var SV := new ScrollViewer;
-  Fon.Child := SV;
+  SP.Children.Add(SV);
   SV.VerticalScrollBarVisibility := scrollbarvisibility.Auto;
   SV.HorizontalScrollBarVisibility := scrollbarvisibility.Auto;
   
   var tablet := new Grid;
   SV.Content := tablet;
+  tablet.Margin := new Thickness(10);
   tablet.Language := System.Windows.Markup.XmlLanguage.GetLanguage('ru-RU');
   tablet.HorizontalAlignment := HorizontalAlignment.Stretch;
   tablet.ShowGridLines := True;
   
-  var firstrow := new RowDefinition;
-  tablet.RowDefinitions.Add(firstrow);
-  firstrow.Height := GridLength.Auto;
+  var AllButton := new Button;
+        DP.Children.Add(AllButton);
+        AllButton.HorizontalAlignment := HorizontalAlignment.Left;
+        AllButton.Margin := new Thickness(5);
+        AllButton.Width := 200;
+        AllButton.Height := 70;
+        AllButton.FontSize := 30;
+        AllButton.Content := 'Все события';
+        AllButton.Click += (o, e) -> 
+          begin
+            Diary.Sort(CompareEntriesByTime);
+            tablet.Children.Clear;
+            tablet.RowDefinitions.Clear;
+            tablet.ColumnDefinitions.Clear;        
+            for var i := 0 to Diary.Count - 1 do
+              begin
+                if i = 0 then 
+                  begin
+                    var colDef0 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef0);
+                    coldef0.Width := GridLength.Auto;
+                    
+                    var colDef1 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef1);
+                    coldef1.Width := GridLength.Auto;
+                    
+                    var colDef2 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef2);
+                    
+                    var colDef3 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef3);
+                    coldef3.Width := GridLength.Auto;  
+                  end;
+                  
+                var firstrow := new RowDefinition;
+                tablet.RowDefinitions.Add(firstrow);
+                firstrow.Height := GridLength.Auto;
+                
+                var ColumnName1 := new TextBlock;
+                tablet.Children.Add(ColumnName1);
+                ColumnName1.Text := '№';
+                ColumnName1.FontSize := 20;
+                ColumnName1.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName1.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName1, 0); 
+                Grid.SetRow(ColumnName1, 0); 
+                
+                var ColumnName2 := new TextBlock;
+                tablet.Children.Add(ColumnName2);
+                ColumnName2.Text := 'Дата и время';
+                ColumnName2.FontSize := 20;
+                ColumnName2.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName2.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName2, 1); 
+                Grid.SetRow(ColumnName2, 0); 
+                
+                var ColumnName3 := new TextBlock;
+                tablet.Children.Add(ColumnName3);
+                ColumnName3.Text := 'Описание события';
+                ColumnName3.FontSize := 20;
+                ColumnName3.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName3.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName3, 2);
+                Grid.SetRow(ColumnName3, 0); 
+                
+                var ColumnName4 := new TextBlock;
+                tablet.Children.Add(ColumnName4);
+                ColumnName4.Text := 'Статус события';
+                ColumnName4.FontSize := 20;
+                ColumnName4.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName4.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName4, 3); 
+                Grid.SetRow(ColumnName4, 0);
+                
+                var row := new RowDefinition;
+                tablet.RowDefinitions.Add(row);
+                
+                var Fon1 := new Border;
+                tablet.Children.Add(Fon1);
+                Grid.SetColumn(Fon1, 0); 
+                Grid.SetRow(Fon1, i+1); 
+                
+                var txt := new TextBlock;
+                Fon1.Child := txt;
+                txt.Text := (i+1).ToString;
+                txt.FontSize := 20;
+                txt.HorizontalAlignment := HorizontalAlignment.Center;
+                txt.VerticalAlignment := VerticalAlignment.Center;
+                txt.Margin := new Thickness(20);
+                
+                var Fon2 := new Border;
+                tablet.Children.Add(Fon2);
+                Grid.SetColumn(Fon2, 1); 
+                Grid.SetRow(Fon2, i+1); 
+                
+                var txt1 := new TextBlock;
+                Fon2.Child := txt1;
+                txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
+                txt1.HorizontalAlignment := HorizontalAlignment.Center;
+                txt1.VerticalAlignment := VerticalAlignment.Center;
+                txt1.Margin := new Thickness(20);
+                txt1.FontSize := 25;
+                
+                var SVTXT := new ScrollViewer;
+                tablet.Children.Add(SVTXT);
+                SVTXT.MaxHeight := 300;
+                SVTXT.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
+                Grid.SetColumn(SVTXT, 2); 
+                Grid.SetRow(SVTXT, i+1); 
+                
+                var txt2 := new TextBlock;
+                SVTXT.Content := txt2;
+                txt2.Text := Diary[i].Task;
+                txt2.HorizontalAlignment := HorizontalAlignment.Center;
+                txt2.VerticalAlignment := VerticalAlignment.Center;
+                txt2.TextWrapping := TextWrapping.Wrap;
+                txt2.MaxWidth := 400;
+                txt2.Margin := new Thickness(20);
+                txt2.FontSize := 25;
+                
+                var Fon3 := new Border;
+                tablet.Children.Add(Fon3);
+                Grid.SetColumn(Fon3, 3); 
+                Grid.SetRow(Fon3, i+1); 
+                
+                var txt3 := new TextBlock;
+                Fon3.Child := txt3;
+                if Diary[i].Done = true then txt3.Text := 'Выполнено'
+                else txt3.Text := 'Не выполнено';
+                txt3.HorizontalAlignment := HorizontalAlignment.Center;
+                txt3.VerticalAlignment := VerticalAlignment.Center;
+                txt3.Margin := new Thickness(20);
+                txt3.FontSize := 25;
+                
+                if Diary[i].Importance = 2 then
+                  begin 
+                    Fon1.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    Fon2.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    Fon3.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    SVTXT.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                  end;
+                  
+                if Diary[i].Importance = 3 then 
+                  begin
+                    Fon1.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    Fon2.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    Fon3.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    SVTXT.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                  end;
+                
+                DP.Children.Item[0].IsEnabled := true;
+                DP.Children.Item[1].IsEnabled := true;
+                DP.Children.Item[2].IsEnabled := true;
+                DP.Children.Item[3].IsEnabled := true;
+                DP.Children.Item[4].IsEnabled := true;
+                AllButton.IsEnabled := false;
+              end;           
+          end;
+   
+  var OutstandingButton := new Button;
+      DP.Children.Add(OutstandingButton);
+      OutstandingButton.HorizontalAlignment := HorizontalAlignment.Left;
+      OutstandingButton.Margin := new Thickness(5);
+      OutstandingButton.Width := 200;
+      OutstandingButton.Height := 70;
+      OutstandingButton.FontSize := 20;
+      OutstandingButton.Content := 'Не выполненные';
+      OutstandingButton.Click += (o, e) -> 
+        begin
+          tablet.Children.Clear;
+          tablet.RowDefinitions.Clear;
+          tablet.ColumnDefinitions.Clear;        
+          for var i := 0 to Diary.Count - 1 do
+                begin
+                  if i = 0 then 
+                    begin
+                      var colDef0 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef0);
+                      coldef0.Width := GridLength.Auto;
+                              
+                      var colDef1 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef1);
+                      coldef1.Width := GridLength.Auto;
+                              
+                      var colDef2 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef2);
+                              
+                      var colDef3 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef3);
+                      coldef3.Width := GridLength.Auto;  
+                    end;  
+                  if diary[i].Done = false then
+                    begin  
+                      var firstrow := new RowDefinition;
+                        tablet.RowDefinitions.Add(firstrow);
+                        firstrow.Height := GridLength.Auto;
+                        
+                        var ColumnName1 := new TextBlock;
+                        tablet.Children.Add(ColumnName1);
+                        ColumnName1.Text := '№';
+                        ColumnName1.FontSize := 20;
+                        ColumnName1.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName1.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName1, 0); 
+                        Grid.SetRow(ColumnName1, 0); 
+                        
+                        var ColumnName2 := new TextBlock;
+                        tablet.Children.Add(ColumnName2);
+                        ColumnName2.Text := 'Дата и время';
+                        ColumnName2.FontSize := 20;
+                        ColumnName2.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName2.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName2, 1); 
+                        Grid.SetRow(ColumnName2, 0); 
+                        
+                        var ColumnName3 := new TextBlock;
+                        tablet.Children.Add(ColumnName3);
+                        ColumnName3.Text := 'Описание события';
+                        ColumnName3.FontSize := 20;
+                        ColumnName3.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName3.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName3, 2);
+                        Grid.SetRow(ColumnName3, 0); 
+                        
+                        var ColumnName4 := new TextBlock;
+                        tablet.Children.Add(ColumnName4);
+                        ColumnName4.Text := 'Статус события';
+                        ColumnName4.FontSize := 20;
+                        ColumnName4.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName4.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName4, 3); 
+                        Grid.SetRow(ColumnName4, 0);
+                        
+                        var row := new RowDefinition;
+                        tablet.RowDefinitions.Add(row);
+                        
+                        var Fon1 := new Border;
+                        tablet.Children.Add(Fon1);
+                        Grid.SetColumn(Fon1, 0); 
+                        Grid.SetRow(Fon1, i+1); 
+                        
+                        var txt := new TextBlock;
+                        Fon1.Child := txt;
+                        txt.Text := (i+1).ToString;
+                        txt.FontSize := 20;
+                        txt.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt.VerticalAlignment := VerticalAlignment.Center;
+                        txt.Margin := new Thickness(20);
+                        
+                        var Fon2 := new Border;
+                        tablet.Children.Add(Fon2);
+                        Grid.SetColumn(Fon2, 1); 
+                        Grid.SetRow(Fon2, i+1); 
+                        
+                        var txt1 := new TextBlock;
+                        Fon2.Child := txt1;
+                        txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
+                        txt1.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt1.VerticalAlignment := VerticalAlignment.Center;
+                        txt1.Margin := new Thickness(20);
+                        txt1.FontSize := 25;
+                        
+                        var SVTXT := new ScrollViewer;
+                        tablet.Children.Add(SVTXT);
+                        SVTXT.MaxHeight := 300;
+                        SVTXT.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
+                        Grid.SetColumn(SVTXT, 2); 
+                        Grid.SetRow(SVTXT, i+1); 
+                        
+                        var txt2 := new TextBlock;
+                        SVTXT.Content := txt2;
+                        txt2.Text := Diary[i].Task;
+                        txt2.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt2.VerticalAlignment := VerticalAlignment.Center;
+                        txt2.TextWrapping := TextWrapping.Wrap;
+                        txt2.MaxWidth := 400;
+                        txt2.Margin := new Thickness(20);
+                        txt2.FontSize := 25;
+                        
+                        var Fon3 := new Border;
+                        tablet.Children.Add(Fon3);
+                        Grid.SetColumn(Fon3, 3); 
+                        Grid.SetRow(Fon3, i+1); 
+                        
+                        var txt3 := new TextBlock;
+                        Fon3.Child := txt3;
+                        if Diary[i].Done = true then txt3.Text := 'Выполнено'
+                        else txt3.Text := 'Не выполнено';
+                        txt3.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt3.VerticalAlignment := VerticalAlignment.Center;
+                        txt3.Margin := new Thickness(20);
+                        txt3.FontSize := 25;
+                        
+                        if Diary[i].Importance = 2 then
+                          begin 
+                            Fon1.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            Fon2.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            Fon3.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            SVTXT.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                          end;
+                          
+                        if Diary[i].Importance = 3 then 
+                          begin
+                            Fon1.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            Fon2.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            Fon3.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            SVTXT.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                          end;
+        
+                        DP.Children.Item[0].IsEnabled := true;
+                        DP.Children.Item[1].IsEnabled := true;
+                        DP.Children.Item[2].IsEnabled := true;
+                        DP.Children.Item[3].IsEnabled := true;
+                        DP.Children.Item[4].IsEnabled := true;
+                        OutstandingButton.IsEnabled := false;
+                    end;
+                end;   
+        end;
   
-  var colDef0 := new ColumnDefinition;
-  tablet.ColumnDefinitions.Add(colDef0);
-  coldef0.Width := GridLength.Auto;
+  var СompletedButton := new Button;
+      DP.Children.Add(СompletedButton);
+      СompletedButton.HorizontalAlignment := HorizontalAlignment.Left;
+      СompletedButton.Margin := new Thickness(5);
+      СompletedButton.Width := 200;
+      СompletedButton.Height := 70;
+      СompletedButton.FontSize := 20;
+      СompletedButton.Content := 'Выполненные';
+      СompletedButton.Click += (o, e) -> 
+        begin
+          tablet.Children.Clear;
+          tablet.RowDefinitions.Clear;
+          tablet.ColumnDefinitions.Clear;        
+          for var i := 0 to Diary.Count - 1 do
+                begin
+                  if i = 0 then 
+                    begin
+                      var colDef0 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef0);
+                      coldef0.Width := GridLength.Auto;
+                              
+                      var colDef1 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef1);
+                      coldef1.Width := GridLength.Auto;
+                              
+                      var colDef2 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef2);
+                              
+                      var colDef3 := new ColumnDefinition;
+                      tablet.ColumnDefinitions.Add(colDef3);
+                      coldef3.Width := GridLength.Auto;  
+                    end;  
+                  if diary[i].Done = true then
+                    begin  
+                      var firstrow := new RowDefinition;
+                        tablet.RowDefinitions.Add(firstrow);
+                        firstrow.Height := GridLength.Auto;
+                        
+                        var ColumnName1 := new TextBlock;
+                        tablet.Children.Add(ColumnName1);
+                        ColumnName1.Text := '№';
+                        ColumnName1.FontSize := 20;
+                        ColumnName1.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName1.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName1, 0); 
+                        Grid.SetRow(ColumnName1, 0); 
+                        
+                        var ColumnName2 := new TextBlock;
+                        tablet.Children.Add(ColumnName2);
+                        ColumnName2.Text := 'Дата и время';
+                        ColumnName2.FontSize := 20;
+                        ColumnName2.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName2.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName2, 1); 
+                        Grid.SetRow(ColumnName2, 0); 
+                        
+                        var ColumnName3 := new TextBlock;
+                        tablet.Children.Add(ColumnName3);
+                        ColumnName3.Text := 'Описание события';
+                        ColumnName3.FontSize := 20;
+                        ColumnName3.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName3.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName3, 2);
+                        Grid.SetRow(ColumnName3, 0); 
+                        
+                        var ColumnName4 := new TextBlock;
+                        tablet.Children.Add(ColumnName4);
+                        ColumnName4.Text := 'Статус события';
+                        ColumnName4.FontSize := 20;
+                        ColumnName4.HorizontalAlignment := HorizontalAlignment.Center;
+                        ColumnName4.Margin := new Thickness(20);
+                        Grid.SetColumn(ColumnName4, 3); 
+                        Grid.SetRow(ColumnName4, 0);
+                        
+                        var row := new RowDefinition;
+                        tablet.RowDefinitions.Add(row);
+                        
+                        var Fon1 := new Border;
+                        tablet.Children.Add(Fon1);
+                        Grid.SetColumn(Fon1, 0); 
+                        Grid.SetRow(Fon1, i+1); 
+                        
+                        var txt := new TextBlock;
+                        Fon1.Child := txt;
+                        txt.Text := (i+1).ToString;
+                        txt.FontSize := 20;
+                        txt.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt.VerticalAlignment := VerticalAlignment.Center;
+                        txt.Margin := new Thickness(20);
+                        
+                        var Fon2 := new Border;
+                        tablet.Children.Add(Fon2);
+                        Grid.SetColumn(Fon2, 1); 
+                        Grid.SetRow(Fon2, i+1); 
+                        
+                        var txt1 := new TextBlock;
+                        Fon2.Child := txt1;
+                        txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
+                        txt1.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt1.VerticalAlignment := VerticalAlignment.Center;
+                        txt1.Margin := new Thickness(20);
+                        txt1.FontSize := 25;
+                        
+                        var SVTXT := new ScrollViewer;
+                        tablet.Children.Add(SVTXT);
+                        SVTXT.MaxHeight := 300;
+                        SVTXT.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
+                        Grid.SetColumn(SVTXT, 2); 
+                        Grid.SetRow(SVTXT, i+1); 
+                        
+                        var txt2 := new TextBlock;
+                        SVTXT.Content := txt2;
+                        txt2.Text := Diary[i].Task;
+                        txt2.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt2.VerticalAlignment := VerticalAlignment.Center;
+                        txt2.TextWrapping := TextWrapping.Wrap;
+                        txt2.MaxWidth := 400;
+                        txt2.Margin := new Thickness(20);
+                        txt2.FontSize := 25;
+                        
+                        var Fon3 := new Border;
+                        tablet.Children.Add(Fon3);
+                        Grid.SetColumn(Fon3, 3); 
+                        Grid.SetRow(Fon3, i+1); 
+                        
+                        var txt3 := new TextBlock;
+                        Fon3.Child := txt3;
+                        if Diary[i].Done = true then txt3.Text := 'Выполнено'
+                        else txt3.Text := 'Не выполнено';
+                        txt3.HorizontalAlignment := HorizontalAlignment.Center;
+                        txt3.VerticalAlignment := VerticalAlignment.Center;
+                        txt3.Margin := new Thickness(20);
+                        txt3.FontSize := 25;
+                        
+                        if Diary[i].Importance = 2 then
+                          begin 
+                            Fon1.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            Fon2.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            Fon3.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                            SVTXT.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                          end;
+                          
+                        if Diary[i].Importance = 3 then 
+                          begin
+                            Fon1.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            Fon2.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            Fon3.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                            SVTXT.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                          end;
+        
+                        DP.Children.Item[0].IsEnabled := true;
+                        DP.Children.Item[1].IsEnabled := true;
+                        DP.Children.Item[2].IsEnabled := true;
+                        DP.Children.Item[3].IsEnabled := true;
+                        DP.Children.Item[4].IsEnabled := true;
+                        СompletedButton.IsEnabled := false;
+                    end;
+                end;   
+        end;
   
-  var colDef1 := new ColumnDefinition;
-  tablet.ColumnDefinitions.Add(colDef1);
-  coldef1.Width := GridLength.Auto;
-  
-  var colDef2 := new ColumnDefinition;
-  tablet.ColumnDefinitions.Add(colDef2);
-  
-  var colDef3 := new ColumnDefinition;
-  tablet.ColumnDefinitions.Add(colDef3);
-  coldef3.Width := GridLength.Auto;
-  
-  var ColumnName1 := new TextBlock;
-  tablet.Children.Add(ColumnName1);
-  ColumnName1.Text := '№';
-  ColumnName1.FontSize := 20;
-  ColumnName1.HorizontalAlignment := HorizontalAlignment.Center;
-  ColumnName1.Margin := new Thickness(20);
-  Grid.SetColumn(ColumnName1, 0); 
-  Grid.SetRow(ColumnName1, 0); 
-  
-  var ColumnName2 := new TextBlock;
-  tablet.Children.Add(ColumnName2);
-  ColumnName2.Text := 'Дата и время';
-  ColumnName2.FontSize := 20;
-  ColumnName2.HorizontalAlignment := HorizontalAlignment.Center;
-  ColumnName2.Margin := new Thickness(20);
-  Grid.SetColumn(ColumnName2, 1); 
-  Grid.SetRow(ColumnName2, 0); 
-  
-  var ColumnName3 := new TextBlock;
-  tablet.Children.Add(ColumnName3);
-  ColumnName3.Text := 'Описание события';
-  ColumnName3.FontSize := 20;
-  ColumnName3.HorizontalAlignment := HorizontalAlignment.Center;
-  ColumnName3.Margin := new Thickness(20);
-  Grid.SetColumn(ColumnName3, 2);
-  Grid.SetRow(ColumnName3, 0); 
-  
-  var ColumnName4 := new TextBlock;
-  tablet.Children.Add(ColumnName4);
-  ColumnName4.Text := 'Статус события';
-  ColumnName4.FontSize := 20;
-  ColumnName4.HorizontalAlignment := HorizontalAlignment.Center;
-  ColumnName4.Margin := new Thickness(20);
-  Grid.SetColumn(ColumnName4, 3); 
-  Grid.SetRow(ColumnName4, 0); 
-  
-  for var i := 0 to Diary.Count - 1 do
-  begin
-    var row := new RowDefinition;
-    tablet.RowDefinitions.Add(row);
-    
-    var txt := new TextBlock;
-    tablet.Children.Add(txt);
-    txt.Text := (i+1).ToString;
-    txt.FontSize := 20;
-    txt.HorizontalAlignment := HorizontalAlignment.Center;
-    txt.VerticalAlignment := VerticalAlignment.Center;
-    txt.Margin := new Thickness(20);
-    Grid.SetColumn(txt, 0); 
-    Grid.SetRow(txt, i+1); 
-    
-    var txt1 := new TextBlock;
-    tablet.Children.Add(txt1);
-    txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
-    txt1.HorizontalAlignment := HorizontalAlignment.Center;
-    txt1.VerticalAlignment := VerticalAlignment.Center;
-    txt1.Margin := new Thickness(20);
-    txt1.FontSize := 25;
-    Grid.SetColumn(txt1, 1); 
-    Grid.SetRow(txt1, i+1); 
-    
-    var SVTXT := new ScrollViewer;
-    tablet.Children.Add(SVTXT);
-    SVTXT.MaxHeight := 300;
-    SVTXT.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
-    Grid.SetColumn(SVTXT, 2); 
-    Grid.SetRow(SVTXT, i+1); 
-    
-    var txt2 := new TextBlock;
-    SVTXT.Content := txt2;
-    txt2.Text := Diary[i].Task;
-    txt2.HorizontalAlignment := HorizontalAlignment.Center;
-    txt2.VerticalAlignment := VerticalAlignment.Center;
-    txt2.TextWrapping := TextWrapping.Wrap;
-    txt2.MaxWidth := 400;
-    txt2.Margin := new Thickness(20);
-    txt2.FontSize := 25;
-    
-    var txt3 := new TextBlock;
-    tablet.Children.Add(txt3);
-    if Diary[i].Done = true then txt3.Text := 'Выполнено'
-    else txt3.Text := 'Не выполнено';
-    txt3.HorizontalAlignment := HorizontalAlignment.Center;
-    txt3.VerticalAlignment := VerticalAlignment.Center;
-    txt3.Margin := new Thickness(20);
-    txt3.FontSize := 25;
-    Grid.SetColumn(txt3, 3); 
-    Grid.SetRow(txt3, i+1); 
-  end;
+  var ImportanceButton := new Button;
+      DP.Children.Add(ImportanceButton);
+      ImportanceButton.HorizontalAlignment := HorizontalAlignment.Left;
+      ImportanceButton.Margin := new Thickness(5);
+      ImportanceButton.Width := 200;
+      ImportanceButton.Height := 70;
+      ImportanceButton.FontSize := 30;
+      ImportanceButton.Content := 'По важности';
+      ImportanceButton.Click += (o, e) -> 
+        begin
+          Diary.Sort(comparebyimportance);
+          tablet.Children.Clear;
+          tablet.RowDefinitions.Clear;
+          tablet.ColumnDefinitions.Clear;
+           for var i := 0 to Diary.Count - 1 do
+              begin
+                if i = 0 then 
+                  begin
+                    var colDef0 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef0);
+                    coldef0.Width := GridLength.Auto;
+                    
+                    var colDef1 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef1);
+                    coldef1.Width := GridLength.Auto;
+                    
+                    var colDef2 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef2);
+                    
+                    var colDef3 := new ColumnDefinition;
+                    tablet.ColumnDefinitions.Add(colDef3);
+                    coldef3.Width := GridLength.Auto;  
+                  end;
+                  
+                var firstrow := new RowDefinition;
+                tablet.RowDefinitions.Add(firstrow);
+                firstrow.Height := GridLength.Auto;
+                
+                var ColumnName1 := new TextBlock;
+                tablet.Children.Add(ColumnName1);
+                ColumnName1.Text := '№';
+                ColumnName1.FontSize := 20;
+                ColumnName1.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName1.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName1, 0); 
+                Grid.SetRow(ColumnName1, 0); 
+                
+                var ColumnName2 := new TextBlock;
+                tablet.Children.Add(ColumnName2);
+                ColumnName2.Text := 'Дата и время';
+                ColumnName2.FontSize := 20;
+                ColumnName2.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName2.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName2, 1); 
+                Grid.SetRow(ColumnName2, 0); 
+                
+                var ColumnName3 := new TextBlock;
+                tablet.Children.Add(ColumnName3);
+                ColumnName3.Text := 'Описание события';
+                ColumnName3.FontSize := 20;
+                ColumnName3.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName3.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName3, 2);
+                Grid.SetRow(ColumnName3, 0); 
+                
+                var ColumnName4 := new TextBlock;
+                tablet.Children.Add(ColumnName4);
+                ColumnName4.Text := 'Статус события';
+                ColumnName4.FontSize := 20;
+                ColumnName4.HorizontalAlignment := HorizontalAlignment.Center;
+                ColumnName4.Margin := new Thickness(20);
+                Grid.SetColumn(ColumnName4, 3); 
+                Grid.SetRow(ColumnName4, 0);
+                
+                var row := new RowDefinition;
+                tablet.RowDefinitions.Add(row);
+                
+                var Fon1 := new Border;
+                tablet.Children.Add(Fon1);
+                Grid.SetColumn(Fon1, 0); 
+                Grid.SetRow(Fon1, i+1); 
+                
+                var txt := new TextBlock;
+                Fon1.Child := txt;
+                txt.Text := (i+1).ToString;
+                txt.FontSize := 20;
+                txt.HorizontalAlignment := HorizontalAlignment.Center;
+                txt.VerticalAlignment := VerticalAlignment.Center;
+                txt.Margin := new Thickness(20);
+                
+                var Fon2 := new Border;
+                tablet.Children.Add(Fon2);
+                Grid.SetColumn(Fon2, 1); 
+                Grid.SetRow(Fon2, i+1); 
+                
+                var txt1 := new TextBlock;
+                Fon2.Child := txt1;
+                txt1.Text := Diary[i].DateAndTime.ToString('dd.MM.yyyy HH:MM', new System.Globalization.CultureInfo('ru-RU'));
+                txt1.HorizontalAlignment := HorizontalAlignment.Center;
+                txt1.VerticalAlignment := VerticalAlignment.Center;
+                txt1.Margin := new Thickness(20);
+                txt1.FontSize := 25;
+                
+                var SVTXT := new ScrollViewer;
+                tablet.Children.Add(SVTXT);
+                SVTXT.MaxHeight := 300;
+                SVTXT.VerticalScrollBarVisibility := ScrollBarVisibility.Auto;
+                Grid.SetColumn(SVTXT, 2); 
+                Grid.SetRow(SVTXT, i+1); 
+                
+                var txt2 := new TextBlock;
+                SVTXT.Content := txt2;
+                txt2.Text := Diary[i].Task;
+                txt2.HorizontalAlignment := HorizontalAlignment.Center;
+                txt2.VerticalAlignment := VerticalAlignment.Center;
+                txt2.TextWrapping := TextWrapping.Wrap;
+                txt2.MaxWidth := 400;
+                txt2.Margin := new Thickness(20);
+                txt2.FontSize := 25;
+                
+                var Fon3 := new Border;
+                tablet.Children.Add(Fon3);
+                Grid.SetColumn(Fon3, 3); 
+                Grid.SetRow(Fon3, i+1); 
+                
+                var txt3 := new TextBlock;
+                Fon3.Child := txt3;
+                if Diary[i].Done = true then txt3.Text := 'Выполнено'
+                else txt3.Text := 'Не выполнено';
+                txt3.HorizontalAlignment := HorizontalAlignment.Center;
+                txt3.VerticalAlignment := VerticalAlignment.Center;
+                txt3.Margin := new Thickness(20);
+                txt3.FontSize := 25;
+                
+                if Diary[i].Importance = 2 then
+                  begin 
+                    Fon1.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    Fon2.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    Fon3.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                    SVTXT.Background := new SolidColorBrush(Color.FromRgb(208,240,192));
+                  end;
+                  
+                if Diary[i].Importance = 3 then 
+                  begin
+                    Fon1.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    Fon2.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    Fon3.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                    SVTXT.Background := new SolidColorBrush(Color.FromRgb(119,221,119));
+                  end;
+                
+                DP.Children.Item[0].IsEnabled := true;
+                DP.Children.Item[1].IsEnabled := true;
+                DP.Children.Item[2].IsEnabled := true;
+                DP.Children.Item[3].IsEnabled := true;
+                DP.Children.Item[4].IsEnabled := true;
+                ImportanceButton.IsEnabled := false;
+              end;           
+        end; 
   
   if diary.Count = 0 then
     begin
@@ -334,7 +920,7 @@ begin
   else
     begin
       var SP := new StackPanel;
-      Fon.Child := Sp;
+      Fon.Child := SP;
       
       var SV := new ScrollViewer;
       SP.Children.Add(SV);
@@ -353,12 +939,10 @@ begin
       TB.Text := 'Выберите запись для изменения:';
       TB.FontSize := 30;
       TB.Margin := new Thickness(20);
-      
-      Var S := [1..Diary.Count];
  
       var CB := new ComboBox;
       DockP.Children.Add(CB);
-      CB.ItemsSource := S;
+      for var i:= 0 to Diary.Count-1 do CB.Items.Add(i+1);
       CB.VerticalContentAlignment := VerticalAlignment.Center;
       CB.HorizontalAlignment := HorizontalAlignment.Left;
       CB.Width := 100;
@@ -503,6 +1087,7 @@ begin
                       Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithTask(Text1.Text);
                       Diary[CB.Text.ToInteger - 1] := Diary[CB.Text.ToInteger - 1].WithDone(CheckB.IsChecked.Value);
                       SP.Children.Clear();
+                      MessageBox.Show('Редактирование прошло успешно', 'Подтверждение');
                     end
                   else
                     MessageBox.Show('Время введено неверно', 'Ошибка!');
@@ -510,12 +1095,8 @@ begin
               else 
                 MessageBox.Show('Некорректный ввод', 'Ошибка!');
             end;
-          
         end;
     end;
-  
-  
-  
   result := Fon;
 end;
 
@@ -570,7 +1151,8 @@ begin
         begin 
           bw.Write(Diary[i].DateAndTime.Ticks); 
           bw.Write(Diary[i].Task); 
-          bw.Write(Diary[i].Done); 
+          bw.Write(Diary[i].Done);
+          bw.Write(Diary[i].Importance);
         end; 
         bw.Close();
     end;
@@ -588,8 +1170,9 @@ begin
     begin 
       var dateTicks := br.ReadInt64(); 
       var task := br.ReadString(); 
-      var done := br.ReadBoolean(); 
-      var new_entry: Entry := New Entry(new DateTime(dateTicks), task, done); 
+      var done := br.ReadBoolean();
+      var imp := br.ReadByte();
+      var new_entry: Entry := New Entry(new DateTime(dateTicks), task, done, imp);
       Diary.Add(new_entry); 
     end; 
   br.Close(); 
@@ -606,8 +1189,27 @@ begin
   var win := new window;
   win.MinHeight := 400;
   win.MinWidth := 800;
-  win.Name:='Diary';
+  win.Title := 'Ежедневник';
   
+  var iconUri := new System.Uri('./ICON.ico',system.UriKind.Relative);  
+  win.Icon := System.Windows.Media.Imaging.BitmapFrame.Create(iconUri);
+
+  var TB := new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon;
+  TB.ToolTipText := 'Ежедневник';
+  TB.Visibility := Visibility.Visible;
+  TB.Icon := new System.Drawing.Icon('ICON.ico');
+  
+  TB.TrayLeftMouseDown += (o,e) ->
+    begin
+      win.show;
+    end;
+
+  win.Closing += (o,e) ->
+    begin
+      e.Cancel := true;
+      win.Hide;
+    end;
+ 
   var Okn := new DockPanel;
   win.Content := Okn;
   Dockpanel.SetDock(Okn,Dock.Left);
@@ -627,6 +1229,56 @@ begin
  
   var CC := new ContentControl;
   Okn.Children.Add(CC);
+  
+  var TBmenu := new StackPanel;
+  TB.TrayPopup := TBmenu;
+  TB.PopupActivation := Hardcodet.Wpf.TaskbarNotification.PopupActivationMode.RightClick;
+  
+  var button1 := new Button;
+  TBmenu.Children.Add(button1);
+  button1.VerticalAlignment := VerticalAlignment.Stretch;
+  Button1.Width := 100;
+  button1.Height := 30;
+  button1.Content := 'Добавить';
+  button1.Click += (o,e) ->
+    begin
+      win.Show;
+      win.WindowState := WindowState.Normal;
+      var oldTopMost := win.Topmost;
+      win.Topmost := true;
+      win.Topmost := oldTopMost;
+      win.Focus();
+      CC.Content := AddEntry(Diary);
+    end;
+  
+  var button2 := new Button;
+  TBmenu.Children.Add(button2);
+  button2.VerticalAlignment := VerticalAlignment.Stretch;
+  button2.Width := 100;
+  button2.Height := 30;
+  button2.Content := 'Показать';
+  button2.Click += (o,e) ->
+    begin
+      win.Show;
+      win.WindowState := WindowState.Normal;
+      var oldTopMost := win.Topmost;
+      win.Topmost := true;
+      win.Topmost := oldTopMost;
+      win.Focus();;
+      CC.Content := PrintEntries(Diary);
+    end;
+  
+  var button3 := new Button;
+  TBmenu.Children.Add(button3);
+  button3.VerticalAlignment := VerticalAlignment.Stretch;
+  button3.Width := 100;
+  button3.Height := 30;
+  button3.Content := 'Выход';
+  button3.Click += (o,e) ->
+    begin
+      WriteToFile(Diary);
+      System.Windows.Application.Current.Shutdown();
+    end;
   
   var add_button := procedure(name: string; when_clicked: ()->object)->
   begin
